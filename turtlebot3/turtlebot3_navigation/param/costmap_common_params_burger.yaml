@@ -1,0 +1,35 @@
+# Indicate the object as an obstacle when the distance between the robot and obstacle is within this range.
+#obstacle_range: 2.5
+# sensor value that exceeds this range will be indicated as a freespace
+#raytrace_range: 3.5
+# external dimension of the robot is provided as polygons in several points
+#footprint: [[-0.110, -0.090], [-0.110, 0.090], [0.041, 0.090], [0.041, -0.090]]
+# radius of the robot. Use the above footprint setting instead of robot_radius.
+#robot_radius: 0.08
+# radius of the inflation area to prevent collision with obstacles
+#inflation_radius: 0.20
+# scaling variable used in costmap calculation. Calculation formula is as follows.
+# scaling
+# exp(-1.0 * cost_scaling_factor *(distance_from_obstacle - inscribed_radius)) *(254 - 1)
+#cost_scaling_factor: 50
+# select costmap to use between voxel(voxel-grid) and costmap(costmap_2d)
+#map_type: costmap
+# tolerance of relative coordinate conversion time between tf
+#transform_tolerance: 0.2
+# specify which sensor to use
+#observation_sources: scan
+# set data type and topic, marking status, minimum obstacle for the laser scan
+#scan: {data_type: LaserScan, topic: scan, marking: true, clearing: true, inf_is_valid: true}
+
+
+
+obstacle_range: 2.5
+raytrace_range: 3.0
+footprint: [[-0.110, -0.090], [-0.110, 0.090], [0.041, 0.090], [0.041, -0.090]]
+#robot_radius: ir_of_robot
+inflation_radius: 0.15
+
+observation_sources: scan
+scan: {data_type: LaserScan, topic: scan, marking: true, clearing: true}
+
+#point_cloud_sensor: {sensor_frame: frame_name, data_type: PointCloud, topic: topic_name, marking: true, clearing: true}
