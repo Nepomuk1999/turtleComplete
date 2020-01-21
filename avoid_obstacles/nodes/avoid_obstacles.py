@@ -19,8 +19,9 @@ if os.name == 'nt':
 else:
     import termios
 
-SLEEP_TIME = 3
-MIN_DISTANCE = 0.20
+SLEEP_TIME = 2
+MIN_DISTANCE = 0.17
+DIST_MAX = 0.3
 # specify directions
 FRONT_LEFT = 0
 FRONT_RIGHT = 1
@@ -45,51 +46,66 @@ class AvoidObstacless:
         while not rospy.is_shutdown():
             # evaluate ranges
             r = self._ranges
+            # set max vesls to 0.3
+            r = np.asarray(r)
+            r[r > DIST_MAX] = DIST_MAX
+            # get max vel of
+            fr, br, bl, fl = self.sum_of_quaters(r)
             indi = self.get_indicess_of_obstacle(r)
+            print indi
             if len(indi) != 0:
-                dir_obstacle = self.get_direction(indi[0])
-                dir_max_space = self.get_direction_unwedge(dir_obstacle)
+                dir_max_space = self.eval_dir_to_go(fr, br, bl, fl)
             else:
                 dir_max_space = -1
             print dir_max_space
             self.publish(dir_max_space)
             time.sleep(SLEEP_TIME)
 
+    def sum_of_quaters(self, ranges):
+        fl = 0.0
+        fr = 0.0
+        bl = 0.0
+        br = 0.0
+        for i in range(0, self._ninety_degree_index):
+            fr = fr + ranges[i]
+        for i in range(self._ninety_degree_index, self._oneigthy_degree_index):
+            br = br + ranges[i]
+        for i in range(self._oneigthy_degree_index, self._twoseventy_degree_index):
+            bl = bl + ranges[i]
+        for i in range(self._oneigthy_degree_index, self._threesixty_degree_index):
+            fr = fr + ranges[i]
+        return fr, br, bl, fl
+
+    def eval_dir_to_go(self, fr, br, bl, fl):
+        rmin = min(fr, br, bl, fl)
+        if rmin is fr or rmin is fl:
+            rmax = max(br, bl)
+            if rmax is br:
+                return BACK_RIGHT
+            if rmax is bl:
+                return BACK_LEFT
+        elif rmin is br or rmin is bl:
+            rmax = max(fr, fl)
+            if rmax is fr:
+                return FRONT_RIGHT
+            if rmax is fl:
+                return FRONT_LEFT
+
     def publish(self, direction_to_go):
         self._pub.publish(Int16(direction_to_go))
-
-    def get_direction(self, index):
-        if 0 <= index < self._ninety_degree_index:
-            return FRONT_LEFT
-        if self._ninety_degree_index <= index < self._oneigthy_degree_index:
-            return FRONT_RIGHT
-        if self._oneigthy_degree_index <= index < self._twoseventy_degree_index:
-            return BACK_LEFT
-        if self._twoseventy_degree_index <= index < self._threesixty_degree_index:
-            return BACK_RIGHT
-
-    def get_direction_unwedge(self, index):
-        obs = self.get_direction(index)
-        if obs is FRONT_LEFT:
-            return BACK_RIGHT
-        if obs is FRONT_RIGHT:
-            return BACK_LEFT
-        if obs is BACK_RIGHT:
-            return FRONT_LEFT
-        if obs is BACK_LEFT:
-            return FRONT_RIGHT
 
     def get_indicess_of_obstacle(self, ranges):
         i = 0
         j = 0
-        indicess = {}
+        indices = {}
         while i < len(ranges):
             # get rid of -inf values
-            if 0 <= ranges[i] < MIN_DISTANCE:
-                indicess[j] = i
-                j = j +1
+            if ranges[i] > 0:
+                if ranges[i] <= MIN_DISTANCE:
+                    indices[j] = i
+                    j = j + 1
             i = i + 1
-        return indicess
+        return indices
 
     def lidar_callback(self, data):
         self._ranges = data.ranges

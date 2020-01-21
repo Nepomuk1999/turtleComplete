@@ -18,7 +18,8 @@ if os.name == 'nt':
 else:
     import termios
 
-GOAL_MIN_DIST_TO_WALL = 6
+GOAL_MIN_DIST_TO_WALL = 8
+ROBOT_KNOWN_SPACE = 6
 
 
 # Publisher
@@ -70,7 +71,7 @@ class LabyrinthExplorer:
 
     def bfs(self, current_map, robot_pos_x, robot_pos_y):
         if robot_pos_x == self._start_x and robot_pos_y == self._start_y:
-            robot_pos_y = robot_pos_y + 2
+            robot_pos_x = robot_pos_x + 2
 
         start_pose = np.array([robot_pos_x, robot_pos_y])
         path = [start_pose]
@@ -82,32 +83,26 @@ class LabyrinthExplorer:
         # current_map[robot_pos_y, robot_pos_x] = 4
         # plt.imshow(current_map, cmap='hot', interpolation='nearest')
         # plt.show()
-        depth_counter = 0
-        last_x_known = 0
-        last_y_known = 0
+        first_run = True
         while len(path) > 0:
-            if len(path) == 0:
+            current_path = path.pop(0)
+            if len(path) == 0 and not first_run:
+                print "bfs len 0"
                 f = plt.figure(1)
                 plt.imshow(current_map, cmap='hot', interpolation='nearest')
-                f.show()
-            current_path = path.pop(0)
+                plt.show()
             closed_list.append(current_path)
             current_x = current_path[0]
             current_y = current_path[1]
-
-            # save last known cell
-            if current_map[current_y, current_x] == 0:
-                last_x_known = current_x
-                last_y_known = current_y
-
             # is wall
             if current_map[current_y, current_x] == 1:
                 continue
             # unknown cell found
             if current_map[current_y, current_x] == -1:
-                return self.next_known_cell(current_x, current_y, current_map)
-                #return last_x_known, last_y_known
-
+                unknown_x = current_x
+                unknown_y = current_y
+                cx, cy = self.next_known_cell(current_x, current_y, current_map)
+                return cx, cy, unknown_x, unknown_y
             # add all neighbours of current cell
             directions = np.array([[current_x - 1, current_y], [current_x + 1, current_y],
                                    [current_x, current_y - 1], [current_x, current_y + 1]])
@@ -116,8 +111,9 @@ class LabyrinthExplorer:
                 if not self.cointains_pos(i, closed_list):
                     if not self.cointains_pos(i, path):
                         path.append(i)
-            depth_counter = depth_counter + 1
-        return self._start_x, self._start_y
+            first_run = False
+        print "return start pose"
+        return self._start_x, self._start_y, 0, 0
 
     def cointains_pos(self, array, array_array):
         for i in array_array:
@@ -132,7 +128,11 @@ class LabyrinthExplorer:
         closed_list = []
         first_run = True
         while len(path) > 0:
-
+            if len(path) == 0 and not first_run:
+                print "next known cell len 0"
+                f = plt.figure(1)
+                plt.imshow(current_map, cmap='hot', interpolation='nearest')
+                f.show()
             current_path = path.pop(0)
             closed_list.append(current_path)
             current_x = current_path[0]
@@ -193,26 +193,31 @@ class LabyrinthExplorer:
         # get map to avoid update while processing
         self._occupancy_grid = rospy.wait_for_message("/map", OccupancyGrid)
         self.update_map_data(self._occupancy_grid)
-        cleared_map = self.map_trimmer.trim_map(self._occupancy_map)
-        cleared_map[self._current_y, self._current_x] = 5
-        next_x, next_y = self.bfs(cleared_map, self._current_x, self._current_y)
-        cleared_map[next_y, next_x] = 10
-        next_x, next_y = self.transform_to_meter(next_x, next_y)
-        #self.publish_goal(next_x, next_y)
-        #self._as.set_succeeded()
-        #service rebuilt
-        #return self.publish_goal(next_x, next_y)
-        return ExploreLabyrinthResponse(next_x, next_y)
+        # self.update_map_data(self._occupancy_grid)
+        cleared_map = self.map_trimmer.trim_map(self._occupancy_map, self._current_x, self._current_y,
+                                                self._map_height, self._map_width)
+        next_x, next_y, unknown_x, unknown_y = self.bfs(cleared_map, self._current_x, self._current_y)
+        # f = plt.figure(1)
+        # plt.imshow(cleared_map, cmap='hot', interpolation='nearest')
+        # plt.show()
+        # cleared_map[unknown_y, unknown_x] = 10
+        # cleared_map[self._current_y, self._current_x] = 5
+        # cleared_map[next_y, next_x] = 10
+        # f = plt.figure(2)
+        # plt.imshow(cleared_map, cmap='hot', interpolation='nearest')
+        # plt.show()
 
-    def publish_goal(self, x_goal, y_goal):
-        goal = MoveBaseGoal()
-        goal.target_pose.header.frame_id = "/map"
-        goal.target_pose.header.stamp = rospy.Time.now()
-        goal.target_pose.pose.position.x = x_goal
-        goal.target_pose.pose.position.y = y_goal
-        goal.target_pose.pose.orientation.w = 1
-        #self._pub.publish(goal)
-        return goal
+        next_xm, next_ym = self.transform_to_meter(next_x, next_y)
+        return ExploreLabyrinthResponse(next_xm, next_ym)
+
+    # def publish_goal(self, x_goal, y_goal):
+    #     goal = MoveBaseGoal()
+    #     goal.target_pose.header.frame_id = "/map"
+    #     goal.target_pose.header.stamp = rospy.Time.now()
+    #     goal.target_pose.pose.position.x = x_goal
+    #     goal.target_pose.pose.position.y = y_goal
+    #     goal.target_pose.pose.orientation.w = 1
+    #     return goal
 
 
 class MapTrimmer:
@@ -220,7 +225,7 @@ class MapTrimmer:
     def __init__(self):
         pass
 
-    def trim_map(self, untrimmed_map):
+    def trim_map(self, untrimmed_map, pos_x, pos_y, _map_height, _map_width):
 
         # set values of 100 to 1 for walls
         untrimmed_map[untrimmed_map == 100] = 1
@@ -230,13 +235,33 @@ class MapTrimmer:
 
         # inflate walls
         trimmed_map = self.inflate_wals(untrimmed_map, 0)
+        new_trimmed_map = self.fix_robot_pos(pos_x, pos_y, _map_height, _map_width, trimmed_map)
 
         # # Plot heatmap of trimmed map
-        # plt.imshow(trimmed_map, cmap='hot', interpolation='nearest')
-        # plt.show()
-        # time.sleep(2)
+        #plt.imshow(trimmed_map, cmap='hot', interpolation='nearest')
+        #plt.show()
+        #time.sleep(2)
 
-        return trimmed_map
+        return new_trimmed_map
+
+    def fix_robot_pos(self, pos_x, pos_y, _map_height, _map_width, current_map):
+        lower_x = pos_x - (np.int(ROBOT_KNOWN_SPACE / 2))
+        if lower_x < 0:
+            lower_x = 0
+        upper_x = pos_x + (np.int(ROBOT_KNOWN_SPACE / 2))
+        if upper_x > _map_width - 1:
+            upper_x = _map_width - 1
+
+        lower_y = pos_y - (np.int(ROBOT_KNOWN_SPACE / 2))
+        if lower_y < 0:
+            lower_y = 0
+        upper_y = pos_y + (np.int(ROBOT_KNOWN_SPACE / 2))
+        if upper_y > _map_height - 1:
+            upper_y = _map_height - 1
+        for i in range(lower_x, upper_x + 2):
+            for j in range(lower_y, upper_y + 2):
+                current_map[j][i] = 0
+        return current_map
 
     def inflate_wals(self, trimmed_map, inflation_factor):
         to_be_inflated = np.where(trimmed_map == 5)
