@@ -21,7 +21,7 @@ from geometry_msgs.msg import Twist
 from sensor_msgs.msg import Image
 from tf.transformations import euler_from_quaternion, quaternion_from_euler
 
-
+#TODO delete me
 
 if os.name == 'nt':
     pass
