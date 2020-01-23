@@ -42,6 +42,7 @@ class CameraController:
         self._current_orientation = None
         rospy.wait_for_message('/odom', Odometry)
         self._phi = 0.0
+        #rospy.
 
     def control_loop(self):
         while not rospy.is_shutdown():
@@ -51,7 +52,7 @@ class CameraController:
             current_x = self._current_x
             current_y = self._current_y
             opening = self.position_token(current_binary_image, current_x, current_y)
-            cv2.imshow('opening', opening)
+            #cv2.imshow('opening', opening)
             # cv2.waitKey(1)
 
     def pose_callback(self, msg):
@@ -63,12 +64,15 @@ class CameraController:
     def image_callback(self, msg):
         bridge = CvBridge()
         try:
+
             cv2_img = bridge.imgmsg_to_cv2(msg, "bgr8")
             img_hsv = cv2.cvtColor(cv2_img, cv2.COLOR_BGR2HSV)
             mask = cv2.inRange(img_hsv, (60, 30, 30), (100, 255, 180))
             #croped = cv2.bitwise_and(cv2_img, cv2_img, mask=mask)
-            kernel = np.ones((3, 3), np.float32) / 25
+            kernel = np.ones((5, 5), np.float32) / 25
             self._binary_image = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+            #cv2.imshow('bw', self._binary_image)
+            #cv2.waitKey(1)
         except CvBridgeError, e:
             print(e)
 
@@ -84,6 +88,8 @@ class CameraController:
 
         # find contours in the binary image
         img, contours, hierarchy = cv2.findContours(median, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        #output = median.copy()
+        #Version 1
         # print contours
         for c in contours:
             # calculate moments for each contour
@@ -99,10 +105,25 @@ class CameraController:
 
             cv2.circle(img, (cX, cY), 5, (100, 100, 100), -1)
             # cv2.putText(img, "centroid", (cX - 25, cY - 25), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+        ###
+        cv2.imshow("Image", img)
+        '''
+        #Version 2
+        if len(contours) != 0:
+            # the contours are drawn here
+            cv2.drawContours(output, contours, -1, 155, 3)
 
-            # display the image
-        # cv2.imshow("Image", img)
-        # cv2.waitKey(0)
+            # find the biggest area of the contour
+            c = max(contours, key=cv2.contourArea)
+            print 'c', c
+            x, y, w, h = cv2.boundingRect(c)
+            # draw the 'human' contour (in green)
+            cv2.rectangle(output, (x, y), (x + w, y + h), (0, 155, 0), 2)
+
+        # display the image
+        cv2.imshow("Image2", output)
+        '''
+        cv2.waitKey(1)
 
         if found == True:
             middel_height = cY  # round((height_1+height_2)/2)
@@ -116,17 +137,18 @@ class CameraController:
             point_2 = H.dot(point_1)
             px = point_2[0] / point_2[2]
             py = point_2[1] / point_2[2]
-            px_robot = 1200 / 2 - px
-            py_robot = 255 + 1200 - py
+            px_robot = (1200 / 2 - px)/1000
+            py_robot = (255 + 1200 - py)/1000
 
             token_rob = np.array([px_robot, py_robot, 1])
-            print token_rob
+            print 'token_rob', token_rob
 
             # ToDO check if x and y are ok
-            T = np.array([[math.cos(self._phi), -math.sin(self._phi), pos_robot_x],
-                          [math.sin(self._phi), math.cos(self._phi), pos_robot_y],
+            T = np.array([[math.cos(self._phi), -math.sin(self._phi), pos_robot_y],
+                          [math.sin(self._phi), math.cos(self._phi), pos_robot_x],
                           [0, 0, 1]])
             token_glob = T.dot(token_rob)
+            print 'token_glob', token_glob
             print 'px_robot:', pos_robot_x
             print 'py_robot:', pos_robot_y
 
