@@ -70,9 +70,6 @@ class LabyrinthExplorer:
         return m_x, m_y
 
     def bfs(self, current_map, robot_pos_x, robot_pos_y):
-        if robot_pos_x == self._start_x and robot_pos_y == self._start_y:
-            robot_pos_x = robot_pos_x + 2
-
         start_pose = np.array([robot_pos_x, robot_pos_y])
         path = [start_pose]
 
@@ -85,16 +82,19 @@ class LabyrinthExplorer:
         # plt.show()
         first_run = True
         while len(path) > 0:
+            if first_run:
+                robot_pos_x = robot_pos_x + 2
             current_path = path.pop(0)
             if len(path) == 0 and not first_run:
                 print "bfs len 0"
-                f = plt.figure(1)
-                plt.imshow(current_map, cmap='hot', interpolation='nearest')
-                plt.show()
+                # f = plt.figure(1)
+                # f.imshow(current_map, cmap='hot', interpolation='nearest')
+                # f.show()
             closed_list.append(current_path)
             current_x = current_path[0]
             current_y = current_path[1]
             # is wall
+
             if current_map[current_y, current_x] == 1:
                 continue
             # unknown cell found
@@ -102,6 +102,10 @@ class LabyrinthExplorer:
                 unknown_x = current_x
                 unknown_y = current_y
                 cx, cy = self.next_known_cell(current_x, current_y, current_map)
+                # current_map[robot_pos_y, robot_pos_x] = 5
+                # current_map[cy, cx] = 10
+                # plt.imshow(current_map, cmap='hot', interpolation='nearest')
+                # plt.show()
                 return cx, cy, unknown_x, unknown_y
             # add all neighbours of current cell
             directions = np.array([[current_x - 1, current_y], [current_x + 1, current_y],
@@ -112,6 +116,7 @@ class LabyrinthExplorer:
                     if not self.cointains_pos(i, path):
                         path.append(i)
             first_run = False
+            current_map[current_y][current_x] = 10
         print "return start pose"
         return self._start_x, self._start_y, 0, 0
 
@@ -123,6 +128,9 @@ class LabyrinthExplorer:
         return False
 
     def next_known_cell(self, pos_x, pos_y, current_map):
+
+        # plt.imshow(current_map, cmap='hot', interpolation='nearest')
+        # plt.show()
         start_pose = np.array([pos_x, pos_y])
         path = [start_pose]
         closed_list = []

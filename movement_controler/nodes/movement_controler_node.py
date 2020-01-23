@@ -22,6 +22,8 @@ Front_RIGHT = 1
 BACK_LEFT = 2
 BACK_RIGHT = 3
 
+PI = 3.1415926535897
+
 if os.name == 'nt':
     pass
 else:
@@ -62,60 +64,48 @@ class MovementController:
         if data is not -1:
             self._status = 'unwedge'
             print 'send twist'
-            self.stop_bot()
+            self.stop_move_base()
             target_linear_vel = 0.0
             target_angular_vel = 0.0
             if data is FRONT_LEFT:
-                target_linear_vel = 0.15
-                target_angular_vel = self._current_pose.linear.x + 0.28
+                self.rotate_robot(0.15, -45.0, 45.0)
             if data is Front_RIGHT:
-                target_linear_vel = 0.15
-                target_angular_vel = self._current_pose.linear.x - 0.28
+                self.rotate_robot(0.15, 45.0, 45.0)
             if data is BACK_LEFT:
-                target_linear_vel = 0.15
-                target_angular_vel = self._current_pose.linear.x + 0.28
+                self.rotate_robot(-0.15, -135.0, 45.0)
             if data is BACK_RIGHT:
-                target_linear_vel = 0.15
-                target_angular_vel = self._current_pose.linear.x - 0.28
-
-            twist = Twist()
-            twist.linear.x = target_linear_vel
-            twist.linear.y = 0.0
-            twist.linear.z = 0.0
-            twist.angular.x = 0.0
-            twist.angular.y = 0.0
-            twist.angular.z = target_angular_vel
-
-            self._turtlebot_pub.publish(twist)
-            time.sleep(3)
-            self._turtlebot_pub.publish(Twist())
-            #self.stop_bot()
+                self.rotate_robot(-0.15, 135.0, 45.0)
+            self._status = 'mapping'
         else:
             self._status = 'mapping'
 
-    def rotate_robot(self):
-        PI = 3.1415926535897
-        speed = 45
-        angle = 359
-        angular_speed = speed * 2 * PI / 360
+    """
+    speed_x: speed of robot in x axis
+    speed_angle: rotationspeed in Degree
+    angle: angle to reach in360 degree
+    """
+    def rotate_robot(self, speed, speed_angle, angle):
+        angular_speed = speed_angle * 2 * PI / 360
         relative_angle = angle * 2 * PI / 360
         twist = Twist()
-        twist.linear.x = 0.01
+        twist.linear.x = speed
         twist.linear.y = 0.0
         twist.linear.z = 0.0
         twist.angular.x = 0.0
         twist.angular.y = 0.0
-        twist.angular.z = -abs(angular_speed)
+        twist.angular.z = angular_speed
         t0 = rospy.Time.now().to_sec()
         current_angle = 0
         while current_angle < relative_angle:
             self._turtlebot_pub.publish(twist)
             t1 = rospy.Time.now().to_sec()
             current_angle = angular_speed * (t1 - t0)
+        self.stop_turtlebot()
+
+    def stop_turtlebot(self):
         self._turtlebot_pub.publish(Twist())
 
-
-    def stop_bot(self):
+    def stop_move_base(self):
         # print self._move_base_client.get_state()
         if self._move_base_client.get_state() is GoalStatus.ACTIVE or GoalStatus.PENDING:
             self._move_base_client.cancel_all_goals()
@@ -140,7 +130,7 @@ class MovementController:
                 print response.y
                 self._move_base_client.send_goal(self._current_goal_msg)
                 self._move_base_client.wait_for_result(rospy.Duration.from_sec(20))
-                self.stop_bot()
+                self.stop_move_base()
 
 
 
