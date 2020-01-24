@@ -1,0 +1,8 @@
+<launch>
+  <arg name="model" default="$(env TURTLEBOT3_MODEL)" doc="model type [burger]"/>
+  <param name="model" value="$(arg model)"/>
+
+  <!-- turtlebot3_teleop_key already has its own built in velocity smoother -->
+  <node pkg="map_tag_handler" type="map_tag_handler.py" name="map_tag_handler"  output="screen">
+  </node>
+</launch>
