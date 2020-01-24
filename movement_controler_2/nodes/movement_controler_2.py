@@ -15,6 +15,8 @@ from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal, MoveBaseResult
 from nav_msgs.msg import OccupancyGrid
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Twist
+from map_tag_handler_srv.srv import *
+
 
 # specify directions
 EVERYWHERE = 0
@@ -40,9 +42,7 @@ class MovementController:
         print 'move base server connected'
         self._labyrinth_explorer = rospy.Subscriber('/explorer_goal_pos_result', MoveBaseGoal,
                                                     self.labyrinth_explorer_callback)
-
-        # self._labyrinth_explorer_clint = actionlib.SimpleActionClient('/explorer_goal_pos', MoveBaseAction)
-        # self._labyrinth_explorer_clint.wait_for_server()
+        self._tag_service = rospy.ServiceProxy('/get_next_Tag', TagService, headers=None)
         print 'wait for explorer service'
         rospy.wait_for_service('/explorer_goal_pos')
         self._explore_service = rospy.ServiceProxy('/explorer_goal_pos', ExploreLabyrinth, headers=None)
@@ -132,6 +132,8 @@ class MovementController:
         print 'movment_controler start loop'
         # rotate at start for better map
         # self.rotate_robot()
+        last_x = -10.0
+        last_y = -10.0
         while not rospy.is_shutdown():
             if self._status is 'pose_estimation':
                 self.rotate_robot(0.0, 45, 359)
@@ -143,6 +145,21 @@ class MovementController:
                 self.stop_turtlebot()
                 #pose est abfrage
             elif self._status is 'find_tsgs':
+                response = self._tag_service(TagServiceRequest)
+                # coord to meters
+
+                goal = MoveBaseGoal()
+                goal.target_pose.header.frame_id = "/map"
+                goal.target_pose.header.stamp = rospy.Time.now()
+                goal.target_pose.pose.position.x = response.x
+                goal.target_pose.pose.position.y = response.y
+                goal.target_pose.pose.orientation.w = 1
+                self._current_goal_msg = goal
+                print 'pub goal'
+                print response.x
+                print response.y
+                self._move_base_client.send_goal(self._current_goal_msg)
+                self._move_base_client.wait_for_result(rospy.Duration.from_sec(20))
 
 
 

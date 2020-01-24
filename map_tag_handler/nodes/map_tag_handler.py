@@ -35,28 +35,47 @@ class MapTagHandler:
     def __init__(self):
         self._provide_tag_service = rospy.Service('/get_next_Tag', TagService, self.provide_next_tag)
         self._save_tags_service = rospy.Service('/save_tags', TagService, self.save_tags)
+        occupancy_grid = rospy.wait_for_message("/map", OccupancyGrid)
+        meta_data = occupancy_grid.info
+        self._offset_x = meta_data.origin.position.x
+        self._offset_y = meta_data.origin.position.y
+        self._resolution = meta_data.resolution
+
         self._active_tags = None
         self._my_fount_tags_x = None
         self._my_fount_tags_y = None
+
         self._colaborator_fount_tags_x = None
         self._colaborator_fount_tags_x = None
+
+
+        self.read_tags_from_file()
         self._distance_values = None
-        self._first_request = True
+        self.calculate_distances()
+
+
 
     def provide_next_tag(self, msg):
-        if self._first_request:
-            self.read_tags_from_file()
-            self._first_request = False
         i = 0
         while i < len(self._active_tags):
             if self._active_tags[i] is True:
                 self._active_tags[i] = False
-                return TagServiceResponse(self._my_fount_tags_x[i], self._my_fount_tags_y[i])
+                return TagServiceResponse(self.transform_to_meter(self._my_fount_tags_x[i], self._my_fount_tags_y[i]))
 
     def save_tags(self, data):
         self._my_fount_tags_x = data.data.x
         self._my_fount_tags_y = data.data.y
         self.write_to_file(self._my_fount_tags_x, self._my_fount_tags_y)
+
+    def transform_to_pos(self, m_x, m_y):
+        pos_x = np.int((m_x - self._offset_x) / self._resolution)
+        pos_y = np.int((m_y - self._offset_y) / self._resolution)
+        return pos_x, pos_y
+
+    def transform_to_meter(self, pos_x, pos_y):
+        m_x = pos_x * self._resolution + self._offset_x
+        m_y = pos_y * self._resolution + self._offset_y
+        return m_x, m_y
 
     def write_to_file(self, x_data, y_data):
         i = 0
@@ -88,7 +107,8 @@ class MapTagHandler:
         xfile.close()
         yfile.close()
 
-    def calculate_distances(self, start_x_vel, start_y_vel):
+# check start vel
+    def calculate_distances(self):
         print 'Calculating distances'
         occupancy_grid = rospy.wait_for_message("/map", OccupancyGrid)
         meta_data = occupancy_grid.info
@@ -98,11 +118,11 @@ class MapTagHandler:
         map_width = meta_data.width
         current_map = trimmed_map.reshape((map_width, map_height))
         # distances from each tag to each others
-        self._distance_values = np.array(np.shape(len(start_x_vel), len(start_x_vel)))
+        self._distance_values = np.array(np.shape(len(self._my_fount_tags_x), len(self._my_fount_tags_x)))
         # index of start values
-        for i in range(0, len(start_x_vel)):
+        for i in range(0, len(self._my_fount_tags_x)):
             print 'Calculation in progress Tagnr: ', i
-            start_pose = np.array([start_x_vel[i], start_y_vel[i]])
+            start_pose = np.array([self._my_fount_tags_x[i], self._my_fount_tags_x[i]])
             path = [start_pose]
             closed_list = []
             distance = 0
@@ -125,9 +145,9 @@ class MapTagHandler:
                         if not self.cointains_pos(x, path):
                             path.append(x)
                 distance += 1
-            for j in range(0, len(start_x_vel)):
-                p1 = distance_map[start_x_vel[i]][start_y_vel[i]]
-                p2 = distance_map[start_x_vel[j]][start_y_vel[j]]
+            for j in range(0, len(self._my_fount_tags_x)):
+                p1 = distance_map[self._my_fount_tags_x[i]][self._my_fount_tags_y[i]]
+                p2 = distance_map[self._my_fount_tags_x[j]][self._my_fount_tags_y[j]]
                 dist = abs(p1 - p2)
                 self._distance_values[i][j] = dist
                 print 'current calculated distances:'
