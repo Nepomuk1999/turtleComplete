@@ -17,12 +17,15 @@ from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Twist
 
 # specify directions
-FRONT_LEFT = 0
-FRONT_RIGHT = 3
-BACK_LEFT = 2
-BACK_RIGHT = 1
+EVERYWHERE = 0
+FRONT_LEFT = 1
+FRONT_RIGHT = 4
+BACK_LEFT = 3
+BACK_RIGHT = 2
 
 PI = 3.1415926535897
+VEL_STRAIGHT = 0.15
+TIME_STRAIGHT = 2
 
 if os.name == 'nt':
     pass
@@ -56,6 +59,7 @@ class MovementController:
 
     def pose_callback(self, msg):
         self._current_pose = msg.twist.twist
+        print 'pose callback', self._current_pose
 
     def labyrinth_explorer_callback(self, data):
         self._old_goal_msg = self._current_goal_msg
@@ -93,7 +97,6 @@ class MovementController:
         twist.angular.z = 0.0
         self._turtlebot_pub.publish(twist)
 
-
     """
     speed_x: speed of robot in x axis
     speed_angle: rotationspeed in Degree
@@ -130,22 +133,18 @@ class MovementController:
         # rotate at start for better map
         # self.rotate_robot()
         while not rospy.is_shutdown():
-            if self._status is 'mapping':
-                #Service update
-                response = self._explore_service(ExploreLabyrinthRequest(0, 0))
-                goal = MoveBaseGoal()
-                goal.target_pose.header.frame_id = "/map"
-                goal.target_pose.header.stamp = rospy.Time.now()
-                goal.target_pose.pose.position.x = response.x
-                goal.target_pose.pose.position.y = response.y
-                goal.target_pose.pose.orientation.w = 1
-                self._current_goal_msg = goal
-                print 'pub goal'
-                print response.x
-                print response.y
-                self._move_base_client.send_goal(self._current_goal_msg)
-                self._move_base_client.wait_for_result(rospy.Duration.from_sec(20))
-                self.stop_move_base()
+            if self._status is 'pose_estimation':
+                self.rotate_robot(0.0, 45, 359)
+                self.stop_turtlebot()
+                self.move_straight(VEL_STRAIGHT)
+                t0 = rospy.Time.now().to_sec() + TIME_STRAIGHT
+                while self._free_direction is EVERYWHERE and t0 < rospy.Time.now().to_sec()
+                    pass
+                self.stop_turtlebot()
+                #pose est abfrage
+            elif self._status is 'find_tsgs':
+
+
 
 def main():
     if os.name != 'nt':

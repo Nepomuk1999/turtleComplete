@@ -19,7 +19,7 @@ else:
     import termios
 
 GOAL_MIN_DIST_TO_WALL = 8
-ROBOT_KNOWN_SPACE = 6
+ROBOT_KNOWN_SPACE = 2
 
 
 # Publisher
@@ -82,8 +82,8 @@ class LabyrinthExplorer:
         # plt.show()
         first_run = True
         while len(path) > 0:
-            if first_run:
-                robot_pos_x = robot_pos_x + 2
+            # if first_run:
+            #     robot_pos_x = robot_pos_x + 2
             current_path = path.pop(0)
             if len(path) == 0 and not first_run:
                 print "bfs len 0"
@@ -116,7 +116,7 @@ class LabyrinthExplorer:
                     if not self.cointains_pos(i, path):
                         path.append(i)
             first_run = False
-            current_map[current_y][current_x] = 10
+            # current_map[current_y][current_x] = 10
         print "return start pose"
         return self._start_x, self._start_y, 0, 0
 
@@ -242,8 +242,8 @@ class MapTrimmer:
         # plt.show()
 
         # inflate walls
-        trimmed_map = self.inflate_wals(untrimmed_map, 0)
-        new_trimmed_map = self.fix_robot_pos(pos_x, pos_y, _map_height, _map_width, trimmed_map)
+        new_trimmed_map = self.inflate_wals(untrimmed_map, 0)
+        # new_trimmed_map = self.fix_robot_pos(pos_x, pos_y, _map_height, _map_width, new_trimmed_map)
 
         # # Plot heatmap of trimmed map
         #plt.imshow(trimmed_map, cmap='hot', interpolation='nearest')

@@ -21,12 +21,12 @@ else:
 
 SLEEP_TIME = 2
 MIN_DISTANCE = 0.17
-DIST_MAX = 0.3
+DIST_MAX = 0.75
 # specify directions
 FRONT_LEFT = 0
-FRONT_RIGHT = 1
+FRONT_RIGHT = 3
 BACK_LEFT = 2
-BACK_RIGHT = 3
+BACK_RIGHT = 1
 
 class AvoidObstacless:
 
@@ -40,6 +40,10 @@ class AvoidObstacless:
         self._twoseventy_degree_index = self._ninety_degree_index + self._oneigthy_degree_index
         self._threesixty_degree_index = len(self._ranges)
         self._pub = rospy.Publisher('/obstacle_avoidance', Int16, queue_size=10)
+        print '90', self._ninety_degree_index
+        print '180', self._oneigthy_degree_index
+        print '270', self._twoseventy_degree_index
+        print '360', self._threesixty_degree_index
 
 
     def control_loop(self):
@@ -52,12 +56,12 @@ class AvoidObstacless:
             # get max vel of
             fr, br, bl, fl = self.sum_of_quaters(r)
             indi = self.get_indicess_of_obstacle(r)
-            print indi
+            print 'indi of obst', indi
             if len(indi) != 0:
                 dir_max_space = self.eval_dir_to_go(fr, br, bl, fl)
             else:
                 dir_max_space = -1
-            print dir_max_space
+            print 'dir to go', dir_max_space
             self.publish(dir_max_space)
             time.sleep(SLEEP_TIME)
 
@@ -67,12 +71,12 @@ class AvoidObstacless:
         bl = 0.0
         br = 0.0
         for i in range(0, self._ninety_degree_index):
-            fr = fr + ranges[i]
+            fl = fl + ranges[i]
         for i in range(self._ninety_degree_index, self._oneigthy_degree_index):
-            br = br + ranges[i]
-        for i in range(self._oneigthy_degree_index, self._twoseventy_degree_index):
             bl = bl + ranges[i]
-        for i in range(self._oneigthy_degree_index, self._threesixty_degree_index):
+        for i in range(self._oneigthy_degree_index, self._twoseventy_degree_index):
+            br = br + ranges[i]
+        for i in range(self._twoseventy_degree_index, self._threesixty_degree_index):
             fr = fr + ranges[i]
         return fr, br, bl, fl
 
@@ -80,9 +84,9 @@ class AvoidObstacless:
         rmin = min(fr, br, bl, fl)
         if rmin is fr or rmin is fl:
             rmax = max(br, bl)
-            if rmax is br:
-                return BACK_RIGHT
             if rmax is bl:
+                return BACK_RIGHT
+            if rmax is br:
                 return BACK_LEFT
         elif rmin is br or rmin is bl:
             rmax = max(fr, fl)

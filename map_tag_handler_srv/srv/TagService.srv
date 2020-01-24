@@ -1,0 +1,5 @@
+int64[] tags_x
+int64[] tags_y
+---
+int64 x
+int64 y
