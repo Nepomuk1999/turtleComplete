@@ -146,8 +146,6 @@ class MovementController:
                 #pose est abfrage
             elif self._status is 'find_tsgs':
                 response = self._tag_service(TagServiceRequest)
-                # coord to meters
-
                 goal = MoveBaseGoal()
                 goal.target_pose.header.frame_id = "/map"
                 goal.target_pose.header.stamp = rospy.Time.now()
@@ -159,7 +157,8 @@ class MovementController:
                 print response.x
                 print response.y
                 self._move_base_client.send_goal(self._current_goal_msg)
-                self._move_base_client.wait_for_result(rospy.Duration.from_sec(20))
+                # self._move_base_client.wait_for_result(rospy.Duration.from_sec(20))
+                self._move_base_client.wait_for_result(rospy.Duration.from_sec(60))
 
 
 

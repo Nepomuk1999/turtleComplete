@@ -137,8 +137,7 @@ class MapTagHandler:
                     continue
                 if current_map[current_y, current_x] == 0:
                     distance_map[current_y][current_x] = distance
-                directions = np.array([[current_x - 1, current_y], [current_x + 1, current_y],
-                                       [current_x, current_y - 1], [current_x, current_y + 1]])
+                directions = np.array([[current_x - 1, current_y], [current_x + 1, current_y], [current_x, current_y - 1], [current_x, current_y + 1]])
                 np.random.shuffle(directions)
                 for x in directions:
                     if not self.cointains_pos(x, closed_list):

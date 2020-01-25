@@ -12,6 +12,7 @@ from explore_labyrinth_srv.srv import *
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
 from nav_msgs.msg import OccupancyGrid
 from nav_msgs.msg import Odometry
+from tf.transformations import euler_from_quaternion, quaternion_from_euler
 
 if os.name == 'nt':
     pass
@@ -36,6 +37,8 @@ class LabyrinthExplorer:
         self._resolution = self._occupancy_grid.info.resolution
         self._map_height = self._occupancy_grid.info.height
         self._map_width = self._occupancy_grid.info.width
+        self._seen_map = np.ones(np.shape(self._map_width, self._map_height))
+        #self._seen_map = np.multiply(self._seen_map, self._occupancy_map)
         # reshape map
         trimmed_map = np.array(self._occupancy_map)
         self._occupancy_map = trimmed_map.reshape((self._map_width, self._map_height))
@@ -57,7 +60,73 @@ class LabyrinthExplorer:
         self._current_y = self._current_pose.position.y
 
         self._current_x, self._current_y = self.transform_to_pos(self._current_x, self._current_y)
-        # print msg.pose.pose
+        self.update_seen_map(self._current_pose.orientation)
+
+    def update_seen_map(self, orientation):
+        phi = orientation_degree = self.get_rotation(orientation)
+        blobb = [[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                 [0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0],
+                 [0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0],
+                 [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]]
+        # front
+        theta = 0
+        if phi in range(0, 23) or phi in range(-23, 0):
+            theta = np.radians(0)
+        elif phi in range(23, 68):
+            theta = np.radians(45)
+        # left
+        elif phi in range(68, 113):
+            theta = np.radians(90)
+        elif phi in range(113, 158):
+            theta = np.radians(135)
+        # back
+        elif phi in range(158, 180) or phi in range(-180, -158):
+            theta = np.radians(180)
+        elif phi in range(-158, -113):
+            theta = np.radians(225)
+        # rigth
+        elif phi in range(-113, -68):
+            theta = np.radians(270)
+        elif phi in range(-68, -23):
+            theta = np.radians(315)
+        c, s = np.cos(theta), np.sin(theta)
+        R = np.array(((c, -s), (s, c)))
+        indices = np.where(blobb == 1)
+        blobb[blobb == 1] = 0
+        # calc rotated blob
+        rows = indices[1]
+        cols = indices[0]
+        for i in range(0, len(rows)):
+            x = rows[i]
+            y = cols[i]
+            v = [x, y]
+            v = np.dot(R, v)
+            blobb[v[1], v[0]] = 1
+        print blobb
+        # Todo match blobb to map
+
+
+    def get_rotation(self, orientation_q):
+        orientation_list = [orientation_q.x, orientation_q.y, orientation_q.z, orientation_q.w]
+        (roll, pitch, yaw) = euler_from_quaternion(orientation_list)
+        return yaw
 
     def transform_to_pos(self, m_x, m_y):
         pos_x = np.int((m_x - self._offset_x) / self._resolution)
@@ -217,15 +286,6 @@ class LabyrinthExplorer:
 
         next_xm, next_ym = self.transform_to_meter(next_x, next_y)
         return ExploreLabyrinthResponse(next_xm, next_ym)
-
-    # def publish_goal(self, x_goal, y_goal):
-    #     goal = MoveBaseGoal()
-    #     goal.target_pose.header.frame_id = "/map"
-    #     goal.target_pose.header.stamp = rospy.Time.now()
-    #     goal.target_pose.pose.position.x = x_goal
-    #     goal.target_pose.pose.position.y = y_goal
-    #     goal.target_pose.pose.orientation.w = 1
-    #     return goal
 
 
 class MapTrimmer:
