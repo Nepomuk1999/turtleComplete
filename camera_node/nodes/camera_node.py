@@ -10,6 +10,9 @@ import actionlib
 import matplotlib.pyplot as plt
 import numpy as np
 import rospy
+#import scipy.ndimage
+from scipy.ndimage import label, generate_binary_structure
+from PIL import Image as Im
 from cv_bridge import CvBridge, CvBridgeError
 from actionlib_msgs.msg import GoalStatus
 from std_msgs.msg import Int16, Int16MultiArray
@@ -65,14 +68,156 @@ class CameraController:
         self._current_orientation = self._current_pose.orientation
         self.get_rotation(msg)
 
+    def mean_token(self):
+        rand = 10
+        size_blob = 5
+        size_x = len(self._found_x)
+
+        #in cm
+        min_x = min(self._found_x)*100
+        max_x = max(self._found_x)*100
+        min_y = min(self._found_y)*100
+        max_y = max(self._found_y)*100
+        length_x = int(round(max_x-min_x)+rand*2)
+        length_y = int(round(max_y-min_y)+rand*2)
+        #print 'length_x', length_x
+        #print 'length_y', length_y
+        array = np.zeros(shape=(length_y, length_x), dtype=int)
+        array2 = np.zeros(shape=(length_y, length_x), dtype=int)
+        for i in range(0,size_x):
+            x_point = int(round(rand + self._found_x[i]*100-min_x))
+            y_point = int(round(rand + self._found_y[i]*100-min_y))
+            #print 'x', x_point
+            #print 'y', y_point
+            array[(y_point-size_blob):(y_point+size_blob+1),(x_point-size_blob):(x_point+size_blob+1)] = \
+                array[(y_point-size_blob):(y_point+size_blob+1),(x_point-size_blob):(x_point+size_blob+1)]+1
+            #plt.imshow(array, cmap='hot', interpolation='nearest')
+            #plt.show()
+
+        #w, h = length_x, length_y
+        #data = np.zeros((h, w, 3), dtype=np.uint8)
+
+        for i in range(0, length_x):
+            for j in range(0, length_y):
+                if array[j, i] <= 3:
+                    array[j, i] = 0
+                else:
+                    array2[j, i] = 1
+                    #data[j, i] = 255
+
+        #print array2
+        s = generate_binary_structure(2, 2)
+        labeled_array, num_features = label(array2, structure=s)
+        #print labeled_array
+        plt.imshow(labeled_array, cmap='hot', interpolation='nearest')
+        plt.show()
+        pos_token = np.zeros(shape=(2, num_features))
+        pos_token_glob = np.zeros(shape=(2, num_features))
+        for i in range(0,num_features):
+            positions = np.where(labeled_array == i+1)
+            positions_x = positions[1]
+            positions_y = positions[0]
+            num = array[positions[0], positions[1]]
+            num_max = max(num)
+            pos_max = np.where(num == num_max)
+            #print 'num_max', num_max
+            #print 'pos_max', pos_max
+            #print 'num ', num
+            #print 'apfel', pos_max
+            position_x = 0.0
+            position_y = 0.0
+            ###PROBLEM
+            #print 'len ', len(pos_max[0])
+            for j in range(0, len(pos_max[0])):
+                #print 'p_max',pos_max[0][j]
+                #print 'p_P_y', positions_y
+                position_y = position_y+positions_y[pos_max[0][j]]
+                position_x = position_x+positions_x[pos_max[0][j]]
+            #print 'p_y',position_y
+            pos_token[0,i] = int(round(position_y/len(pos_max[0])))
+            pos_token[1,i] = int(round(position_x/len(pos_max[0])))
+            #print 'pos_token', pos_token
+            labeled_array[pos_token[0,i],pos_token[1,i]] = 100
+
+            #print 'max', num_max
+            #print 'pos_max', pos_max
+            #print num
+
+        pos_token_glob[0] = (pos_token[0,:]-rand+min_y)/100
+        pos_token_glob[1] = (pos_token[1,:]-rand+min_x)/100
+        #print pos_token
+        print pos_token_glob
+        plt.imshow(labeled_array, cmap='hot', interpolation='nearest')
+        plt.show()
+
+
+        #img = Im.fromarray(data, 'RGB')
+        # info = np.iinfo(data.dtype)  # Get the information of the incoming image type
+        # data = data.astype(np.float64) / info.max  # normalize the data to 0 - 1
+        # data = 255 * data  # Now scale by 255
+        # img = data.astype(np.uint8)
+        # ret, bw_img = cv2.threshold(img, 127, 255, cv2.THRESH_BINARY)
+        # img, contours, hierarchy = cv2.findContours(bw_img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        #
+        # #output = median.copy()
+        #
+        # #Version 1
+        # # print contours
+        # for c in contours:
+        #     # calculate moments for each contour
+        #     M = cv2.moments(c)
+        #
+        #     # calculate x,y coordinate of center
+        #     if M["m00"] != 0:
+        #         cX = int(M["m10"] / M["m00"])
+        #         cY = int(M["m01"] / M["m00"])
+        #         found = True
+        #     else:
+        #         cX, cY = 0, 0
+        #
+        #     cv2.circle(img, (cX, cY), 5, (100, 100, 100), -1)
+        #     # cv2.putText(img, "centroid", (cX - 25, cY - 25), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+        #
+        # cv2.imshow("Image", img)
+        # cv2.waitKey(1)
+        #
+        #
+        # plt.imshow(array, cmap='hot', interpolation='nearest')
+        # plt.show()
+        cv2.imshow('Test',array)
+        cv2.waitKey(1)
+        #print size_x
+        #print 'round_min_x', round(min_x)
+        #print 'min_x',min_x
+        #print 'max_x',max_x
+        #print 'min_y', min_y
+        #print 'max_y', max_y
+        '''
+        array = np.zeros(shape=(5, 5))
+        plt.imshow(array, cmap='hot', interpolation='nearest')
+        plt.show()
+        for k in 5:
+            for i in range(0, 3):
+                for j in range(0, 3):
+                    array[i, j] = array[i, j] + 1
+
+        plt.imshow(array, cmap='hot', interpolation='nearest')
+        plt.show()
+        '''
+        # Plot heatmap of trimmed map
+        # current_map[robot_pos_y, robot_pos_x] = 4
+        # plt.imshow(current_map, cmap='hot', interpolation='nearest')
+        # plt.show()
+
     def image_callback(self, msg):
         bridge = CvBridge()
         try:
 
             cv2_img = bridge.imgmsg_to_cv2(msg, "bgr8")
             img_hsv = cv2.cvtColor(cv2_img, cv2.COLOR_BGR2HSV)
-            mask = cv2.inRange(img_hsv, (60, 20, 15), (100, 230, 235))
-            #mask = cv2.inRange(img_hsv, (65, 40, 40), (95, 220, 180))
+            #16:00
+            mask = cv2.inRange(img_hsv, (50, 25, 25), (110, 220, 220))
+            #mask = cv2.inRange(img_hsv, (65, 60, 60), (95, 180, 180))
             #croped = cv2.bitwise_and(cv2_img, cv2_img, mask=mask)
             kernel = np.ones((3, 3), np.float32) / 25
             self._binary_image = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
@@ -90,7 +235,6 @@ class CameraController:
     def position_token(self, median, pos_robot_x, pos_robot_y, pos_robot_phi):
         found = False
         height, width = np.shape(median)
-
         # find contours in the binary image
         img, contours, hierarchy = cv2.findContours(median, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         output = median.copy()
@@ -159,7 +303,7 @@ class CameraController:
             px_robot = (255 + 1200 - px)/1000
 
             token_rob = np.array([px_robot, py_robot, 1])
-            print 'token_rob', token_rob
+            #print 'token_rob', token_rob
 
             # ToDO check if x and y are ok
             T = np.array([[math.cos(pos_robot_phi), -math.sin(pos_robot_phi), pos_robot_x],
@@ -168,14 +312,15 @@ class CameraController:
             token_glob = T.dot(token_rob)
             self._found_x = np.append(self._found_x,token_glob[0])
             self._found_y = np.append(self._found_y,token_glob[1])
-            print 'len', self._found_x
-            if len(self._found_x)%50 == 0:
+            #print 'len', self._found_x
+            if len(self._found_x)%100== 0:
+                self.mean_token()
                 plt.plot(self._found_x, self._found_y, 'ro')
                 plt.show()#block=False)
-            print 'phi: ', pos_robot_phi
-            print 'token_glob', token_glob
-            print 'px_robot:', pos_robot_x
-            print 'py_robot:', pos_robot_y
+            #print 'phi: ', pos_robot_phi
+            #print 'token_glob', token_glob
+            #print 'px_robot:', pos_robot_x
+            #print 'py_robot:', pos_robot_y
 
 
             #        if ((middel_width-(width/2))>5):
