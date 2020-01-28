@@ -23,8 +23,10 @@ from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Twist
 from sensor_msgs.msg import Image
 from tf.transformations import euler_from_quaternion, quaternion_from_euler
+from std_msgs.msg import String
 
-#TODO delete me
+STAT_STOP_BOT = 'stop_bot'
+STAT_MAPPING = 'mapping'
 
 if os.name == 'nt':
     pass
@@ -47,7 +49,7 @@ class CameraController:
         self._phi = 0.0
         self._found_x = []
         self._found_y = []
-        #rospy.
+        self._interrupt_pub = rospy.Publisher('/interrupt_msg', String)
 
     def control_loop(self):
         while not rospy.is_shutdown():
@@ -212,12 +214,13 @@ class CameraController:
     def image_callback(self, msg):
         bridge = CvBridge()
         try:
-
             cv2_img = bridge.imgmsg_to_cv2(msg, "bgr8")
             img_hsv = cv2.cvtColor(cv2_img, cv2.COLOR_BGR2HSV)
             #16:00
-            mask = cv2.inRange(img_hsv, (50, 25, 25), (110, 220, 220))
+            #mask = cv2.inRange(img_hsv, (50, 25, 25), (110, 220, 220))
             #mask = cv2.inRange(img_hsv, (65, 60, 60), (95, 180, 180))
+            # 11':24
+            mask = cv2.inRange(img_hsv, (36, 30, 30), (86, 240, 240))
             #croped = cv2.bitwise_and(cv2_img, cv2_img, mask=mask)
             kernel = np.ones((3, 3), np.float32) / 25
             self._binary_image = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)

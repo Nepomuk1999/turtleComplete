@@ -37,7 +37,8 @@ class LabyrinthExplorer:
         self._resolution = self._occupancy_grid.info.resolution
         self._map_height = self._occupancy_grid.info.height
         self._map_width = self._occupancy_grid.info.width
-        self._seen_map = np.ones(np.shape(self._map_width, self._map_height))
+        self._seen_map = np.ones((self._map_width, self._map_height), dtype=int)
+        self._seen_map[self._seen_map == 1] = -1
         #self._seen_map = np.multiply(self._seen_map, self._occupancy_map)
         # reshape map
         trimmed_map = np.array(self._occupancy_map)
@@ -46,27 +47,31 @@ class LabyrinthExplorer:
         self._current_pose = None
         self._current_x = None
         self._current_y = None
-        while self._current_pose is None:
-            time.sleep(2)
+        self._callback_counter = 0
+        self._counter = 0
+        rospy.wait_for_message('/odom', Odometry)
         self._start_x, self._start_y = self.transform_to_pos(self._current_pose.position.x, self._current_pose.position.y)
         # self._as = actionlib.SimpleActionServer('/explorer_goal_pos', MoveBaseAction,
         #                                         execute_cb=self.movementcontroller, auto_start=False)
         # self._as.start()
         self._as = rospy.Service('/explorer_goal_pos', ExploreLabyrinth, self.movementcontroller)
+        self.match_divider = 3
 
     def pose_callback(self, msg):
+        self._callback_counter = self._callback_counter + 1
         self._current_pose = msg.pose.pose
         self._current_x = self._current_pose.position.x
         self._current_y = self._current_pose.position.y
-
         self._current_x, self._current_y = self.transform_to_pos(self._current_x, self._current_y)
-        self.update_seen_map(self._current_pose.orientation)
+        if self._callback_counter % 6 == 0:
+            self.update_seen_map(self._current_pose.orientation)
 
     def update_seen_map(self, orientation):
-        phi = orientation_degree = self.get_rotation(orientation)
-        blobb = [[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        phi = self.get_rotation(orientation)
+        phi = phi/np.pi * 180
+        blobb = np.array([[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
                  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                 [0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0],
                  [0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0],
                  [0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0],
                  [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -84,43 +89,59 @@ class LabyrinthExplorer:
                  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
                  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
                  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]]
+                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]], dtype=int)
+        blobb_angle = np.array([[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                 [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                 [0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                 [0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                 [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                 [0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                 [0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                 [0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]], dtype=int)
         # front
-        theta = 0
-        if phi in range(0, 23) or phi in range(-23, 0):
-            theta = np.radians(0)
-        elif phi in range(23, 68):
-            theta = np.radians(45)
+        rotated = blobb
+        if -23.0 <= phi < 23.0:
+            rotated = blobb
+        elif 23.0 <= phi < 68.0:
+            rotated = blobb_angle
         # left
-        elif phi in range(68, 113):
-            theta = np.radians(90)
-        elif phi in range(113, 158):
-            theta = np.radians(135)
+        elif 68.0 <= phi < 113.0:
+            rotated = np.rot90(blobb)
+        elif 113.0 <= phi < 158.0:
+            rotated = np.rot90(blobb_angle)
         # back
-        elif phi in range(158, 180) or phi in range(-180, -158):
-            theta = np.radians(180)
-        elif phi in range(-158, -113):
-            theta = np.radians(225)
+        elif 158.0 <= phi <= 180.0 or -180.0 <= phi <= -158.0:
+            rotated = np.rot90(np.rot90(blobb))
+        elif -158.0 <= phi < -113.0:
+            rotated = np.rot90(np.rot90(blobb_angle))
         # rigth
-        elif phi in range(-113, -68):
-            theta = np.radians(270)
-        elif phi in range(-68, -23):
-            theta = np.radians(315)
-        c, s = np.cos(theta), np.sin(theta)
-        R = np.array(((c, -s), (s, c)))
-        indices = np.where(blobb == 1)
-        blobb[blobb == 1] = 0
-        # calc rotated blob
-        rows = indices[1]
-        cols = indices[0]
-        for i in range(0, len(rows)):
-            x = rows[i]
-            y = cols[i]
-            v = [x, y]
-            v = np.dot(R, v)
-            blobb[v[1], v[0]] = 1
-        print blobb
-        # Todo match blobb to map
+        elif -68.0 <= phi < -113.0:
+            rotated = np.rot90(np.rot90(np.rot90(blobb)))
+        elif -68.0 <= phi < -23:
+            rotated = np.rot90(np.rot90(np.rot90(blobb_angle)))
+        h, w = np.shape(rotated)
+        h = h/2
+        x_lower_b = self._current_x - h
+        y_lower_b = self._current_y - h
+        x_upper_b = self._current_x + (h + 1)
+        y_upper_b = self._current_y + (h + 1)
+        print phi
+        print rotated
+        self._seen_map[y_lower_b:y_upper_b, x_lower_b:x_upper_b] = \
+            np.add(self._seen_map[y_lower_b:y_upper_b, x_lower_b:x_upper_b], rotated)
 
 
     def get_rotation(self, orientation_q):
@@ -141,14 +162,8 @@ class LabyrinthExplorer:
     def bfs(self, current_map, robot_pos_x, robot_pos_y):
         start_pose = np.array([robot_pos_x, robot_pos_y])
         path = [start_pose]
-
         map_size_y, map_size_x = np.shape(current_map)
         closed_list = []
-
-        # Plot heatmap of trimmed map
-        # current_map[robot_pos_y, robot_pos_x] = 4
-        # plt.imshow(current_map, cmap='hot', interpolation='nearest')
-        # plt.show()
         first_run = True
         while len(path) > 0:
             # if first_run:
@@ -156,26 +171,23 @@ class LabyrinthExplorer:
             current_path = path.pop(0)
             if len(path) == 0 and not first_run:
                 print "bfs len 0"
-                # f = plt.figure(1)
-                # f.imshow(current_map, cmap='hot', interpolation='nearest')
-                # f.show()
             closed_list.append(current_path)
             current_x = current_path[0]
             current_y = current_path[1]
             # is wall
-
             if current_map[current_y, current_x] == 1:
                 continue
             # unknown cell found
             if current_map[current_y, current_x] == -1:
-                unknown_x = current_x
-                unknown_y = current_y
                 cx, cy = self.next_known_cell(current_x, current_y, current_map)
-                # current_map[robot_pos_y, robot_pos_x] = 5
-                # current_map[cy, cx] = 10
-                # plt.imshow(current_map, cmap='hot', interpolation='nearest')
-                # plt.show()
-                return cx, cy, unknown_x, unknown_y
+                # set to current pose, to avoid drive to start
+                # and drive to unseen poses
+                if self.match_divider != 1 and cx == self._start_x:
+                    if cy == self._start_y:
+                        self.match_divider = 1
+                        cx = robot_pos_x
+                        cy = robot_pos_y
+                return cx, cy
             # add all neighbours of current cell
             directions = np.array([[current_x - 1, current_y], [current_x + 1, current_y],
                                    [current_x, current_y - 1], [current_x, current_y + 1]])
@@ -187,6 +199,7 @@ class LabyrinthExplorer:
             first_run = False
             # current_map[current_y][current_x] = 10
         print "return start pose"
+
         return self._start_x, self._start_y, 0, 0
 
     def cointains_pos(self, array, array_array):
@@ -205,11 +218,6 @@ class LabyrinthExplorer:
         closed_list = []
         first_run = True
         while len(path) > 0:
-            if len(path) == 0 and not first_run:
-                print "next known cell len 0"
-                f = plt.figure(1)
-                plt.imshow(current_map, cmap='hot', interpolation='nearest')
-                f.show()
             current_path = path.pop(0)
             closed_list.append(current_path)
             current_x = current_path[0]
@@ -220,10 +228,6 @@ class LabyrinthExplorer:
             # known cell found
             if self.check_goal_pos(current_x, current_y, current_map):
                 return current_x, current_y
-            #if current_map[current_y, current_x] == 0:
-            #    return self.goal_pos_correction(current_x, current_y, current_map)
-
-            # add all neighbours of current cell
             directions = np.array([[current_x + 1, current_y], [current_x - 1, current_y],
                                    [current_x, current_y + 1], [current_x, current_y - 1]])
             np.random.shuffle(directions)
@@ -232,6 +236,7 @@ class LabyrinthExplorer:
                     if not self.cointains_pos(i, path):
                         path.append(i)
             first_run = False
+        return self._start_x, self._start_y
 
     def check_goal_pos(self, pos_x, pos_y, current_map):
         lower_x = pos_x - (np.int(GOAL_MIN_DIST_TO_WALL / 2))
@@ -265,6 +270,15 @@ class LabyrinthExplorer:
         trimmed_map = np.array(self._occupancy_map)
         self._occupancy_map = trimmed_map.reshape((self._map_width, self._map_height))
 
+    def match_maps(self, current_map):
+        for x in range(0, self._map_width):
+            for y in range(0, self._map_height):
+                if (current_map[y][x] == 0) and (self._seen_map[y][x] == -1):
+                    current_map[y][x] = -1
+        print 'maps matched'
+        return current_map
+
+
     def movementcontroller(self, goal):
         print 'calc next pos'
         # get map to avoid update while processing
@@ -273,17 +287,18 @@ class LabyrinthExplorer:
         # self.update_map_data(self._occupancy_grid)
         cleared_map = self.map_trimmer.trim_map(self._occupancy_map, self._current_x, self._current_y,
                                                 self._map_height, self._map_width)
-        next_x, next_y, unknown_x, unknown_y = self.bfs(cleared_map, self._current_x, self._current_y)
-        # f = plt.figure(1)
-        # plt.imshow(cleared_map, cmap='hot', interpolation='nearest')
-        # plt.show()
-        # cleared_map[unknown_y, unknown_x] = 10
-        # cleared_map[self._current_y, self._current_x] = 5
-        # cleared_map[next_y, next_x] = 10
-        # f = plt.figure(2)
-        # plt.imshow(cleared_map, cmap='hot', interpolation='nearest')
-        # plt.show()
-
+        if self._counter % self.match_divider == 0:
+            self._seen_map[self._seen_map > 1] = 1
+            cleared_map = self.match_maps(cleared_map)
+            # f1 = plt.figure(1)
+            # plt.imshow(self._seen_map, cmap='hot', interpolation='nearest')
+            # self._seen_map[self._seen_map > 1] = 1
+            # plt.show()
+            # f1 = plt.figure(2)
+            # plt.imshow(self._seen_map, cmap='hot', interpolation='nearest')
+            # plt.show()
+        next_x, next_y = self.bfs(cleared_map, self._current_x, self._current_y)
+        self._counter = self._counter + 1
         next_xm, next_ym = self.transform_to_meter(next_x, next_y)
         return ExploreLabyrinthResponse(next_xm, next_ym)
 
@@ -294,22 +309,8 @@ class MapTrimmer:
         pass
 
     def trim_map(self, untrimmed_map, pos_x, pos_y, _map_height, _map_width):
-
-        # set values of 100 to 1 for walls
         untrimmed_map[untrimmed_map == 100] = 1
-
-        # plt.imshow(trimmed_map, cmap='hot', interpolation='nearest')
-        # plt.show()
-
-        # inflate walls
         new_trimmed_map = self.inflate_wals(untrimmed_map, 0)
-        # new_trimmed_map = self.fix_robot_pos(pos_x, pos_y, _map_height, _map_width, new_trimmed_map)
-
-        # # Plot heatmap of trimmed map
-        #plt.imshow(trimmed_map, cmap='hot', interpolation='nearest')
-        #plt.show()
-        #time.sleep(2)
-
         return new_trimmed_map
 
     def fix_robot_pos(self, pos_x, pos_y, _map_height, _map_width, current_map):
