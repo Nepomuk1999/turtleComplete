@@ -20,7 +20,7 @@ from explore_labyrinth_srv.srv import *
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal, MoveBaseResult
 from nav_msgs.msg import OccupancyGrid
 from nav_msgs.msg import Odometry
-from geometry_msgs.msg import Twist
+from geometry_msgs.msg import Twist, Pose
 from sensor_msgs.msg import Image
 from tf.transformations import euler_from_quaternion, quaternion_from_euler
 from std_msgs.msg import String
@@ -40,13 +40,20 @@ class CameraController:
         self._current_image = None
         self._binary_image = None
         rospy.wait_for_message("/image_raw", Image)
-        self._odom_sub = rospy.Subscriber('/odom', Odometry, self.pose_callback)
-        self._current_pose = None
-        self._current_x = None
-        self._current_y = None
-        self._current_orientation = None
-        rospy.wait_for_message('/odom', Odometry)
-        self._phi = 0.0
+        # self._odom_sub = rospy.Subscriber('/odom', Odometry, self.pose_callback)
+        # self._current_pose = None
+        # self._current_x = None
+        # self._current_y = None
+        # self._current_orientation = None
+        # self._phi = None
+        # rospy.wait_for_message('/odom', Odometry)
+        self._pose_pub_sub = rospy.Subscriber('/robot_pose', Pose, self.pose_pub_callback)
+        self._current_pose_pub = None
+        self._current_x_pub = None
+        self._current_y_pub = None
+        self._current_orientation_pub = None
+        self._phi_pub = None
+        rospy.wait_for_message('/robot_pose', Pose)
         self._found_x = []
         self._found_y = []
         self._interrupt_pub = rospy.Publisher('/interrupt_msg', String)
@@ -63,12 +70,19 @@ class CameraController:
             #cv2.imshow('opening', opening)
             # cv2.waitKey(1)
 
+    def pose_pub_callback(self, msg):
+        self._current_pose_pub = msg.pose.pose
+        self._current_x_pub = self._current_pose_pub.position.x
+        self._current_y_pub = self._current_pose_pub.position.x
+        self._current_orientation_pub = self._current_pose_pub.orientation
+        self._phi = self.get_rotation(msg)
+
     def pose_callback(self, msg):
         self._current_pose = msg.pose.pose
         self._current_x = self._current_pose.position.x
         self._current_y = self._current_pose.position.y
         self._current_orientation = self._current_pose.orientation
-        self.get_rotation(msg)
+        self._phi_pub = self.get_rotation(msg)
 
     def mean_token(self):
         rand = 10
@@ -233,7 +247,7 @@ class CameraController:
         orientation_q = msg.pose.pose.orientation
         orientation_list = [orientation_q.x, orientation_q.y, orientation_q.z, orientation_q.w]
         (roll, pitch, yaw) = euler_from_quaternion(orientation_list)
-        self._phi = yaw
+        return yaw
 
     def position_token(self, median, pos_robot_x, pos_robot_y, pos_robot_phi):
         found = False
