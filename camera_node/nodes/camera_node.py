@@ -62,7 +62,7 @@ class CameraController:
         while not rospy.is_shutdown():
             rospy.wait_for_message("/image_raw", Image)
             current_binary_image = self._binary_image
-            rospy.wait_for_message('/odom', Odometry)
+            rospy.wait_for_message('/robot_pose', Pose)
             current_x = self._current_x_pub
             current_y = self._current_y_pub
             current_phi = self._phi_pub
@@ -71,7 +71,7 @@ class CameraController:
             # cv2.waitKey(1)
 
     def pose_pub_callback(self, msg):
-        self._current_pose_pub = msg.pose.pose
+        self._current_pose_pub = msg
         self._current_x_pub = self._current_pose_pub.position.x
         self._current_y_pub = self._current_pose_pub.position.x
         self._current_orientation_pub = self._current_pose_pub.orientation
@@ -115,7 +115,7 @@ class CameraController:
 
         for i in range(0, length_x):
             for j in range(0, length_y):
-                if array[j, i] <= 3:
+                if array[j, i] <= 2:
                     array[j, i] = 0
                 else:
                     array2[j, i] = 1
@@ -234,7 +234,7 @@ class CameraController:
             #mask = cv2.inRange(img_hsv, (50, 25, 25), (110, 220, 220))
             #mask = cv2.inRange(img_hsv, (65, 60, 60), (95, 180, 180))
             # 11':24
-            mask = cv2.inRange(img_hsv, (36, 30, 30), (86, 240, 240))
+            mask = cv2.inRange(img_hsv, (36, 35, 35), (110, 255, 255))
             #croped = cv2.bitwise_and(cv2_img, cv2_img, mask=mask)
             kernel = np.ones((3, 3), np.float32) / 25
             self._binary_image = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
@@ -244,7 +244,7 @@ class CameraController:
             print(e)
 
     def get_rotation(self, msg):
-        orientation_q = msg.pose.pose.orientation
+        orientation_q = msg.orientation
         orientation_list = [orientation_q.x, orientation_q.y, orientation_q.z, orientation_q.w]
         (roll, pitch, yaw) = euler_from_quaternion(orientation_list)
         return yaw
@@ -330,7 +330,7 @@ class CameraController:
             self._found_x = np.append(self._found_x,token_glob[0])
             self._found_y = np.append(self._found_y,token_glob[1])
             #print 'len', self._found_x
-            if len(self._found_x)%100== 0:
+            if len(self._found_x)%200== 0:
                 self.mean_token()
                 plt.plot(self._found_x, self._found_y, 'ro')
                 plt.show()#block=False)
