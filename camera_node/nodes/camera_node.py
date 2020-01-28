@@ -63,9 +63,9 @@ class CameraController:
             rospy.wait_for_message("/image_raw", Image)
             current_binary_image = self._binary_image
             rospy.wait_for_message('/odom', Odometry)
-            current_x = self._current_x
-            current_y = self._current_y
-            current_phi = self._phi
+            current_x = self._current_x_pub
+            current_y = self._current_y_pub
+            current_phi = self._phi_pub
             opening = self.position_token(current_binary_image, current_x, current_y, current_phi)
             #cv2.imshow('opening', opening)
             # cv2.waitKey(1)
@@ -75,14 +75,14 @@ class CameraController:
         self._current_x_pub = self._current_pose_pub.position.x
         self._current_y_pub = self._current_pose_pub.position.x
         self._current_orientation_pub = self._current_pose_pub.orientation
-        self._phi = self.get_rotation(msg)
-
-    def pose_callback(self, msg):
-        self._current_pose = msg.pose.pose
-        self._current_x = self._current_pose.position.x
-        self._current_y = self._current_pose.position.y
-        self._current_orientation = self._current_pose.orientation
         self._phi_pub = self.get_rotation(msg)
+
+    # def pose_callback(self, msg):
+    #     self._current_pose = msg.pose.pose
+    #     self._current_x = self._current_pose.position.x
+    #     self._current_y = self._current_pose.position.y
+    #     self._current_orientation = self._current_pose.orientation
+    #     self._phi_pub = self.get_rotation(msg)
 
     def mean_token(self):
         rand = 10
