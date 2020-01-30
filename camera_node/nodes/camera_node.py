@@ -36,9 +36,14 @@ else:
 class CameraController:
 
     def __init__(self):
+        self.pos_token_glob_x = []
+        self.pos_token_glob_y = []
+## TODO Ändern auf position des blobs und schreiben auf die beide variablen
         self.image_sub = rospy.Subscriber("/image_raw", Image, self.image_callback)
-        self._current_image = None
-        self._binary_image = None
+        self._blob_y = None
+        self._blob_x = None
+        #self._current_image = None
+        #self._binary_image = None
         rospy.wait_for_message("/image_raw", Image)
         # self._odom_sub = rospy.Subscriber('/odom', Odometry, self.pose_callback)
         # self._current_pose = None
@@ -60,13 +65,16 @@ class CameraController:
 
     def control_loop(self):
         while not rospy.is_shutdown():
+## TODO Ändern auf blob
             rospy.wait_for_message("/image_raw", Image)
-            current_binary_image = self._binary_image
+            #current_binary_image = self._binary_image
             rospy.wait_for_message('/robot_pose', Pose)
             current_x = self._current_x_pub
             current_y = self._current_y_pub
             current_phi = self._phi_pub
-            opening = self.position_token(current_binary_image, current_x, current_y, current_phi)
+            blob_y =  self._blob_y
+            blob_x = self._blob_x
+            self.position_token(blob_y, blob_x, current_x, current_y, current_phi)
             #cv2.imshow('opening', opening)
             # cv2.waitKey(1)
 
@@ -159,10 +167,11 @@ class CameraController:
             #print 'pos_max', pos_max
             #print num
 
-        pos_token_glob[0] = (pos_token[0,:]-rand+min_y)/100
-        pos_token_glob[1] = (pos_token[1,:]-rand+min_x)/100
+        self.pos_token_glob_y = (pos_token[0,:]-rand+min_y)/100
+        self.pos_token_glob_x = (pos_token[1,:]-rand+min_x)/100
         #print pos_token
-        print pos_token_glob
+        print 'pos_token_glob_x', self.pos_token_glob_x
+        print 'pos_token_glob_y', self.pos_token_glob_y
         plt.imshow(labeled_array, cmap='hot', interpolation='nearest')
         plt.show()
 
@@ -224,7 +233,7 @@ class CameraController:
         # current_map[robot_pos_y, robot_pos_x] = 4
         # plt.imshow(current_map, cmap='hot', interpolation='nearest')
         # plt.show()
-
+'''
     def image_callback(self, msg):
         bridge = CvBridge()
         try:
@@ -234,7 +243,8 @@ class CameraController:
             #mask = cv2.inRange(img_hsv, (50, 25, 25), (110, 220, 220))
             #mask = cv2.inRange(img_hsv, (65, 60, 60), (95, 180, 180))
             # 11':24
-            mask = cv2.inRange(img_hsv, (36, 35, 35), (110, 255, 255))
+            #mask = cv2.inRange(img_hsv, (36, 35, 35), (110, 255, 255))
+            mask = cv2.inRange(img_hsv, (50, 30, 100), (110, 200, 150))
             #croped = cv2.bitwise_and(cv2_img, cv2_img, mask=mask)
             kernel = np.ones((3, 3), np.float32) / 25
             self._binary_image = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
@@ -242,39 +252,40 @@ class CameraController:
             #cv2.waitKey(1)
         except CvBridgeError, e:
             print(e)
-
+'''
     def get_rotation(self, msg):
         orientation_q = msg.orientation
         orientation_list = [orientation_q.x, orientation_q.y, orientation_q.z, orientation_q.w]
         (roll, pitch, yaw) = euler_from_quaternion(orientation_list)
         return yaw
 
-    def position_token(self, median, pos_robot_x, pos_robot_y, pos_robot_phi):
-        found = False
+    def position_token(self, blob_y, blob_x, pos_robot_x, pos_robot_y, pos_robot_phi):
+        #found = False
+'''
         height, width = np.shape(median)
         # find contours in the binary image
         img, contours, hierarchy = cv2.findContours(median, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         output = median.copy()
-        '''
-        #Version 1
-        # print contours
-        for c in contours:
-            # calculate moments for each contour
-            M = cv2.moments(c)
 
-            # calculate x,y coordinate of center
-            if M["m00"] != 0:
-                cX = int(M["m10"] / M["m00"])
-                cY = int(M["m01"] / M["m00"])
-                found = True
-            else:
-                cX, cY = 0, 0
+        # #Version 1
+        # # print contours
+        # for c in contours:
+        #     # calculate moments for each contour
+        #     M = cv2.moments(c)
+        # 
+        #     # calculate x,y coordinate of center
+        #     if M["m00"] != 0:
+        #         cX = int(M["m10"] / M["m00"])
+        #         cY = int(M["m01"] / M["m00"])
+        #         found = True
+        #     else:
+        #         cX, cY = 0, 0
+        # 
+        #     cv2.circle(img, (cX, cY), 5, (100, 100, 100), -1)
+        #     # cv2.putText(img, "centroid", (cX - 25, cY - 25), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+        # ###
+        # cv2.imshow("Image", img)
 
-            cv2.circle(img, (cX, cY), 5, (100, 100, 100), -1)
-            # cv2.putText(img, "centroid", (cX - 25, cY - 25), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
-        ###
-        cv2.imshow("Image", img)
-        '''
         #Version 2
         if len(contours) != 0:
             # the contours are drawn here
@@ -303,37 +314,37 @@ class CameraController:
             cv2.imshow("Image2", output)
 
             cv2.waitKey(1)
+'''
 
-        if found == True:
-            middel_height = cY  # round((height_1+height_2)/2)
-            middel_width = cX  # round((width_1+width_2)/2)
-            print 'mw', middel_width
-            print 'mh', middel_height
-            point_1 = np.array([middel_width, middel_height, 1])
-            H = np.array([[96.0070653929683, 308.829767885900, -14250.2707091498],
-                          [19.2638464106271, 738.626135977933, -22187.7158339254],
-                          [0.0143717792767875, 0.514067001440494, 1]])
-            point_2 = H.dot(point_1)
-            py = point_2[0] / point_2[2]
-            px = point_2[1] / point_2[2]
-            py_robot = (1200 / 2 - py)/1000
-            px_robot = (255 + 1200 - px)/1000
+        middel_height = blob_y  # round((height_1+height_2)/2)
+        middel_width = blob_x  # round((width_1+width_2)/2)
+        print 'mw', middel_width
+        print 'mh', middel_height
+        point_1 = np.array([middel_width, middel_height, 1])
+        H = np.array([[96.0070653929683, 308.829767885900, -14250.2707091498],
+                      [19.2638464106271, 738.626135977933, -22187.7158339254],
+                      [0.0143717792767875, 0.514067001440494, 1]])
+        point_2 = H.dot(point_1)
+        py = point_2[0] / point_2[2]
+        px = point_2[1] / point_2[2]
+        py_robot = (1200 / 2 - py)/1000
+        px_robot = (255 + 1200 - px)/1000
 
-            token_rob = np.array([px_robot, py_robot, 1])
-            #print 'token_rob', token_rob
+        token_rob = np.array([px_robot, py_robot, 1])
+        #print 'token_rob', token_rob
 
-            # ToDO check if x and y are ok
-            T = np.array([[math.cos(pos_robot_phi), -math.sin(pos_robot_phi), pos_robot_x],
-                          [math.sin(pos_robot_phi), math.cos(pos_robot_phi), pos_robot_y],
-                          [0, 0, 1]])
-            token_glob = T.dot(token_rob)
-            self._found_x = np.append(self._found_x,token_glob[0])
-            self._found_y = np.append(self._found_y,token_glob[1])
-            #print 'len', self._found_x
-            if len(self._found_x)%200== 0:
-                self.mean_token()
-                plt.plot(self._found_x, self._found_y, 'ro')
-                plt.show()#block=False)
+        # ToDO check if x and y are ok
+        T = np.array([[math.cos(pos_robot_phi), -math.sin(pos_robot_phi), pos_robot_x],
+                      [math.sin(pos_robot_phi), math.cos(pos_robot_phi), pos_robot_y],
+                      [0, 0, 1]])
+        token_glob = T.dot(token_rob)
+        self._found_x = np.append(self._found_x,token_glob[0])
+        self._found_y = np.append(self._found_y,token_glob[1])
+        #print 'len', self._found_x
+        if len(self._found_x)%200== 0:
+            self.mean_token()
+            plt.plot(self._found_x, self._found_y, 'ro')
+            plt.show()#block=False)
             #print 'phi: ', pos_robot_phi
             #print 'token_glob', token_glob
             #print 'px_robot:', pos_robot_x
@@ -347,8 +358,8 @@ class CameraController:
             #        else:
             #            pass#direction
 
-            median[middel_height, middel_width] = 0
-        return median
+        #   median[middel_height, middel_width] = 0
+        #return median
 
 def main():
     if os.name != 'nt':
