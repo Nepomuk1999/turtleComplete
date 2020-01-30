@@ -159,6 +159,7 @@ class CameraController:
         ps.point = Point(x=cx, y=cy)
         ps_map = self._tl.transformPoint('map', ps)
         mx = ps_map.point.x
+
         my = ps_map.point.y
         map_x, map_y = self.transform_to_pos(mx, my)
         return map_x, map_y
