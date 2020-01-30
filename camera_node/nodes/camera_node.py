@@ -10,6 +10,7 @@ import actionlib
 import matplotlib.pyplot as plt
 import numpy as np
 import rospy
+import tf
 #import scipy.ndimage
 from scipy.ndimage import label, generate_binary_structure
 from PIL import Image as Im
@@ -20,13 +21,20 @@ from explore_labyrinth_srv.srv import *
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal, MoveBaseResult
 from nav_msgs.msg import OccupancyGrid
 from nav_msgs.msg import Odometry
-from geometry_msgs.msg import Twist, Pose
+from geometry_msgs.msg import Twist, Pose, PointStamped, Point
 from sensor_msgs.msg import Image
 from tf.transformations import euler_from_quaternion, quaternion_from_euler
-from std_msgs.msg import String
+from std_msgs.msg import String, Time
+from map_tag_handler_srv.srv import *
+from save_tag_msg.msg import *
+from pixy_msgs.msg import *
+
 
 STAT_STOP_BOT = 'stop_bot'
 STAT_MAPPING = 'mapping'
+STAT_SAVE = 'save_token'
+
+ELEMENT_RANGE_WITH = 2  # 2 = 40 cm + 5cm = 45cm coords are calculated
 
 if os.name == 'nt':
     pass
@@ -36,15 +44,15 @@ else:
 class CameraController:
 
     def __init__(self):
-        self.pos_token_glob_x = []
-        self.pos_token_glob_y = []
-## TODO Ändern auf position des blobs und schreiben auf die beide variablen
-        self.image_sub = rospy.Subscriber("/image_raw", Image, self.image_callback)
-        self._blob_y = None
-        self._blob_x = None
+        self._pos_token_glob_x = []
+        self._pos_token_glob_y = []
+        self.blob_sub = rospy.Subscriber('/block_data', PixyData, self.blobb_callback)
+        self._blob_y = 0
+        self._blob_x = 0
+        self._last_stamp = Time()
         #self._current_image = None
         #self._binary_image = None
-        rospy.wait_for_message("/image_raw", Image)
+        #rospy.wait_for_message("/image_raw", Image)
         # self._odom_sub = rospy.Subscriber('/odom', Odometry, self.pose_callback)
         # self._current_pose = None
         # self._current_x = None
@@ -61,22 +69,52 @@ class CameraController:
         rospy.wait_for_message('/robot_pose', Pose)
         self._found_x = []
         self._found_y = []
-        self._interrupt_pub = rospy.Publisher('/interrupt_msg', String)
+        self._interrupt_pub = rospy.Publisher('/interrupt_msg', String, queue_size=10)
+        self._interrupt_pub = rospy.Subscriber('/save_tags', String, self.interrupt_callback)
+        #self._save_tags_pub = rospy.Publisher('/save_tags', TagService)
+        msg = rospy.wait_for_message("/map", OccupancyGrid)
+        meta_data = msg.info
+        self._offset_x = meta_data.origin.position.x
+        self._offset_y = meta_data.origin.position.y
+        self._resolution = meta_data.resolution
+        self._tl = tf.TransformListener()
+        print 'init finished'
 
     def control_loop(self):
         while not rospy.is_shutdown():
-## TODO Ändern auf blob
-            rospy.wait_for_message("/image_raw", Image)
-            #current_binary_image = self._binary_image
-            rospy.wait_for_message('/robot_pose', Pose)
-            current_x = self._current_x_pub
-            current_y = self._current_y_pub
-            current_phi = self._phi_pub
-            blob_y =  self._blob_y
-            blob_x = self._blob_x
-            self.position_token(blob_y, blob_x, current_x, current_y, current_phi)
-            #cv2.imshow('opening', opening)
-            # cv2.waitKey(1)
+            # TODO: checkn if 0 check is good
+            if self._blob_x is not 0:
+                print 'apfel'
+                rc_blob_x, rc_blob_y = self.get_pose_token_robot_coord(self._blob_x, self._blob_y)
+                mc_blob_x, mc_blob_y = self.get_pose_token_map(rc_blob_x, rc_blob_y, self._last_stamp)
+                if not self.glob_x_y_contains_in_range(mc_blob_x, mc_blob_y):
+                    print 'blob x:', mc_blob_x
+                    print 'blob_x:', mc_blob_y
+                    self._pos_token_glob_x.append(mc_blob_x)
+                    self._pos_token_glob_y.append(mc_blob_y)
+                    msg = rospy.wait_for_message("/map", OccupancyGrid)
+                    grid = msg.data
+                    for i in range(0, len(self._pos_token_glob_x)):
+                        grid[self._pos_token_glob_y][self._pos_token_glob_x] = 10
+                    plt.imshow(grid, cmap='hot', interpolation='nearest')
+                    plt.show()
+                    time.sleep(10)
+                    plt.close()
+
+    def blobb_callback(self, blob_data):
+        stamp_nsec = blob_data.header.stamp.nsecs
+        if stamp_nsec is not 0:
+            print blob_data.blocks
+            self._last_stamp = blob_data.header.stamp
+            self._blob_y = blob_data.blocks[0].roi.x_offset
+            self._blob_x = blob_data.blocks[0].roi.y_offset
+
+    def interrupt_callback(self, msg):
+        if msg.data is STAT_SAVE:
+            msg = SaveTag()
+            msg.x_values = self._pos_token_glob_x
+            msg.x_values = self._pos_token_glob_y
+            self._save_tags_pub.publish(msg)
 
     def pose_pub_callback(self, msg):
         self._current_pose_pub = msg
@@ -84,6 +122,48 @@ class CameraController:
         self._current_y_pub = self._current_pose_pub.position.x
         self._current_orientation_pub = self._current_pose_pub.orientation
         self._phi_pub = self.get_rotation(msg)
+
+    # checks if array contains element of a given range
+    def glob_x_y_contains_in_range(self, current_token_x, current_token_y):
+        b = False
+        x_element_range_lower_bound = current_token_x - ELEMENT_RANGE_WITH
+        x_element_range_upper_bound = current_token_x + ELEMENT_RANGE_WITH
+        y_element_range_lower_bound = current_token_y - ELEMENT_RANGE_WITH
+        y_element_range_upper_bound = current_token_y + ELEMENT_RANGE_WITH
+        if  not np.empty(self._pos_token_glob_x):
+            for i in range (0, len(self._pos_token_glob_x)):
+                if not (x_element_range_lower_bound <= self._pos_token_glob_x[i] <= x_element_range_upper_bound):
+                    if not (y_element_range_lower_bound <= self._pos_token_glob_y[i] <= y_element_range_upper_bound):
+                        b = True
+        return b
+
+    def get_pose_token_robot_coord(self, blob_x, blob_y):
+        middel_height = blob_y  # round((height_1+height_2)/2)
+        middel_width = blob_x  # round((width_1+width_2)/2)
+        print 'mw', middel_width
+        print 'mh', middel_height
+        point_1 = np.array([middel_width, middel_height, 1])
+        H = np.array([[96.0070653929683, 308.829767885900, -14250.2707091498],
+                      [19.2638464106271, 738.626135977933, -22187.7158339254],
+                      [0.0143717792767875, 0.514067001440494, 1]])
+        point_2 = H.dot(point_1)
+        py = point_2[0] / point_2[2]
+        px = point_2[1] / point_2[2]
+        return px, py
+
+    def get_pose_token_map(self, rc_blob_x, rc_blob_y, blob_data_stamp):
+        ps = PointStamped()
+        ps.header.frame_id = '/base_footprint'
+        ps.header.stamp = blob_data_stamp
+        cx, cy = self.transform_to_meter(rc_blob_x, rc_blob_y)
+        ps.point = Point(x=cx, y=cy)
+        ps_map = self._tl.transformPoint('map', ps)
+        mx = ps_map.point.x
+        my = ps_map.point.y
+        map_x, map_y = self.transform_to_pos(mx, my)
+        return map_x, map_y
+
+
 
     # def pose_callback(self, msg):
     #     self._current_pose = msg.pose.pose
@@ -233,7 +313,8 @@ class CameraController:
         # current_map[robot_pos_y, robot_pos_x] = 4
         # plt.imshow(current_map, cmap='hot', interpolation='nearest')
         # plt.show()
-'''
+
+    '''
     def image_callback(self, msg):
         bridge = CvBridge()
         try:
@@ -252,16 +333,27 @@ class CameraController:
             #cv2.waitKey(1)
         except CvBridgeError, e:
             print(e)
-'''
+    '''
+
     def get_rotation(self, msg):
         orientation_q = msg.orientation
         orientation_list = [orientation_q.x, orientation_q.y, orientation_q.z, orientation_q.w]
         (roll, pitch, yaw) = euler_from_quaternion(orientation_list)
         return yaw
 
+    def transform_to_pos(self, m_x, m_y):
+        pos_x = np.int((m_x - self._offset_x) / self._resolution)
+        pos_y = np.int((m_y - self._offset_y) / self._resolution)
+        return pos_x, pos_y
+
+    def transform_to_meter(self, pos_x, pos_y):
+        m_x = pos_x * self._resolution + self._offset_x
+        m_y = pos_y * self._resolution + self._offset_y
+        return m_x, m_y
+
     def position_token(self, blob_y, blob_x, pos_robot_x, pos_robot_y, pos_robot_phi):
-        #found = False
-'''
+        # found = False
+        '''
         height, width = np.shape(median)
         # find contours in the binary image
         img, contours, hierarchy = cv2.findContours(median, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
@@ -272,7 +364,7 @@ class CameraController:
         # for c in contours:
         #     # calculate moments for each contour
         #     M = cv2.moments(c)
-        # 
+        #
         #     # calculate x,y coordinate of center
         #     if M["m00"] != 0:
         #         cX = int(M["m10"] / M["m00"])
@@ -280,7 +372,7 @@ class CameraController:
         #         found = True
         #     else:
         #         cX, cY = 0, 0
-        # 
+        #
         #     cv2.circle(img, (cX, cY), 5, (100, 100, 100), -1)
         #     # cv2.putText(img, "centroid", (cX - 25, cY - 25), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
         # ###
@@ -314,8 +406,7 @@ class CameraController:
             cv2.imshow("Image2", output)
 
             cv2.waitKey(1)
-'''
-
+        '''
         middel_height = blob_y  # round((height_1+height_2)/2)
         middel_width = blob_x  # round((width_1+width_2)/2)
         print 'mw', middel_width

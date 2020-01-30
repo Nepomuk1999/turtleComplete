@@ -13,6 +13,7 @@ from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
 from nav_msgs.msg import OccupancyGrid
 from nav_msgs.msg import Odometry
 from tf.transformations import euler_from_quaternion, quaternion_from_euler
+from geometry_msgs.msg import Twist, Pose, PointStamped, Point
 
 if os.name == 'nt':
     pass
@@ -20,13 +21,16 @@ else:
     import termios
 
 GOAL_MIN_DIST_TO_WALL = 8
-ROBOT_KNOWN_SPACE = 2
+ROBOT_KNOWN_SPACE = 10
 
 
 # Publisher
 class LabyrinthExplorer:
 
     def __init__(self):
+        self._callback_counter = 0
+        self._node_use_counter = 1
+        self.match_divider = 15
         self._pub = rospy.Publisher('/explorer_goal_pos_result', MoveBaseGoal, queue_size=10)
         print 'publisher initialized'
         self.map_trimmer = MapTrimmer()
@@ -43,74 +47,68 @@ class LabyrinthExplorer:
         # reshape map
         trimmed_map = np.array(self._occupancy_map)
         self._occupancy_map = trimmed_map.reshape((self._map_width, self._map_height))
-        self._odom_sub = rospy.Subscriber('/odom', Odometry, self.pose_callback)
+        self._pose_pub_sub = rospy.Subscriber('/robot_pose', Pose, self.pose_callback)
         self._current_pose = None
         self._current_x = None
         self._current_y = None
-        self._callback_counter = 0
-        self._counter = 0
-        rospy.wait_for_message('/odom', Odometry)
+        rospy.wait_for_message('/robot_pose', Pose)
         self._start_x, self._start_y = self.transform_to_pos(self._current_pose.position.x, self._current_pose.position.y)
-        # self._as = actionlib.SimpleActionServer('/explorer_goal_pos', MoveBaseAction,
-        #                                         execute_cb=self.movementcontroller, auto_start=False)
-        # self._as.start()
         self._as = rospy.Service('/explorer_goal_pos', ExploreLabyrinth, self.movementcontroller)
-        self.match_divider = 3
 
     def pose_callback(self, msg):
         self._callback_counter = self._callback_counter + 1
-        self._current_pose = msg.pose.pose
+        self._current_pose = msg
         self._current_x = self._current_pose.position.x
         self._current_y = self._current_pose.position.y
         self._current_x, self._current_y = self.transform_to_pos(self._current_x, self._current_y)
-        if self._callback_counter % 6 == 0:
+        if self._callback_counter % 3 == 0:
             self.update_seen_map(self._current_pose.orientation)
 
     def update_seen_map(self, orientation):
         phi = self.get_rotation(orientation)
         phi = phi/np.pi * 180
         blobb = np.array([[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                 [0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0],
-                 [0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0],
-                 [0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0],
-                 [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0],
-                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]], dtype=int)
+                          [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                          [0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0],
+                          [0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0],
+                          [0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0],
+                          [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+                          [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                          [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                          [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                          [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                          [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                          [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                          [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                          [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                          [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                          [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                          [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                          [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                          [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                          [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                          [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]], dtype=int)
         blobb_angle = np.array([[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                 [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                 [0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                 [0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                 [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                 [0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                 [0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                 [0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]], dtype=int)
+                                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                                [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                                [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                                [0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                                [0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                                [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                                [0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                                [0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                                [0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]], dtype=int)
         # front
         rotated = blobb
         if -23.0 <= phi < 23.0:
@@ -138,8 +136,6 @@ class LabyrinthExplorer:
         y_lower_b = self._current_y - h
         x_upper_b = self._current_x + (h + 1)
         y_upper_b = self._current_y + (h + 1)
-        print phi
-        print rotated
         self._seen_map[y_lower_b:y_upper_b, x_lower_b:x_upper_b] = \
             np.add(self._seen_map[y_lower_b:y_upper_b, x_lower_b:x_upper_b], rotated)
 
@@ -180,13 +176,13 @@ class LabyrinthExplorer:
             # unknown cell found
             if current_map[current_y, current_x] == -1:
                 cx, cy = self.next_known_cell(current_x, current_y, current_map)
-                # set to current pose, to avoid drive to start
-                # and drive to unseen poses
-                if self.match_divider != 1 and cx == self._start_x:
-                    if cy == self._start_y:
-                        self.match_divider = 1
-                        cx = robot_pos_x
-                        cy = robot_pos_y
+                if self.match_divider == 1 and (cy == self._start_y and cx == self._start_x):
+                    return self._start_x, self._start_y,
+                if cy == self._start_y and cx == self._start_x:
+                    print 'set to robot pose'
+                    self.match_divider = 1
+                    cx = self._current_x
+                    cy = self._current_y
                 return cx, cy
             # add all neighbours of current cell
             directions = np.array([[current_x - 1, current_y], [current_x + 1, current_y],
@@ -196,11 +192,9 @@ class LabyrinthExplorer:
                 if not self.cointains_pos(i, closed_list):
                     if not self.cointains_pos(i, path):
                         path.append(i)
-            first_run = False
-            # current_map[current_y][current_x] = 10
+        first_run = False
         print "return start pose"
-
-        return self._start_x, self._start_y, 0, 0
+        return self._start_x, self._start_y
 
     def cointains_pos(self, array, array_array):
         for i in array_array:
@@ -210,9 +204,6 @@ class LabyrinthExplorer:
         return False
 
     def next_known_cell(self, pos_x, pos_y, current_map):
-
-        # plt.imshow(current_map, cmap='hot', interpolation='nearest')
-        # plt.show()
         start_pose = np.array([pos_x, pos_y])
         path = [start_pose]
         closed_list = []
@@ -236,6 +227,7 @@ class LabyrinthExplorer:
                     if not self.cointains_pos(i, path):
                         path.append(i)
             first_run = False
+        print 'no next known cell found'
         return self._start_x, self._start_y
 
     def check_goal_pos(self, pos_x, pos_y, current_map):
@@ -278,7 +270,6 @@ class LabyrinthExplorer:
         print 'maps matched'
         return current_map
 
-
     def movementcontroller(self, goal):
         print 'calc next pos'
         # get map to avoid update while processing
@@ -287,7 +278,7 @@ class LabyrinthExplorer:
         # self.update_map_data(self._occupancy_grid)
         cleared_map = self.map_trimmer.trim_map(self._occupancy_map, self._current_x, self._current_y,
                                                 self._map_height, self._map_width)
-        if self._counter % self.match_divider == 0:
+        if self._node_use_counter % self.match_divider == 0:
             self._seen_map[self._seen_map > 1] = 1
             cleared_map = self.match_maps(cleared_map)
             # f1 = plt.figure(1)
@@ -295,10 +286,10 @@ class LabyrinthExplorer:
             # self._seen_map[self._seen_map > 1] = 1
             # plt.show()
             # f1 = plt.figure(2)
-            # plt.imshow(self._seen_map, cmap='hot', interpolation='nearest')
+            # plt.imshow(cleared_map, cmap='hot', interpolation='nearest')
             # plt.show()
         next_x, next_y = self.bfs(cleared_map, self._current_x, self._current_y)
-        self._counter = self._counter + 1
+        self._node_use_counter = self._node_use_counter + 1
         next_xm, next_ym = self.transform_to_meter(next_x, next_y)
         return ExploreLabyrinthResponse(next_xm, next_ym)
 
@@ -306,11 +297,14 @@ class LabyrinthExplorer:
 class MapTrimmer:
 
     def __init__(self):
-        pass
+        self._first_run = True
 
     def trim_map(self, untrimmed_map, pos_x, pos_y, _map_height, _map_width):
         untrimmed_map[untrimmed_map == 100] = 1
         new_trimmed_map = self.inflate_wals(untrimmed_map, 0)
+        if self._first_run:
+            new_trimmed_map = self.fix_robot_pos(pos_x, pos_y, _map_height, _map_width, new_trimmed_map)
+            self._first_run = False
         return new_trimmed_map
 
     def fix_robot_pos(self, pos_x, pos_y, _map_height, _map_width, current_map):

@@ -14,7 +14,7 @@ from explore_labyrinth_srv.srv import *
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal, MoveBaseResult
 from nav_msgs.msg import OccupancyGrid
 from nav_msgs.msg import Odometry
-from geometry_msgs.msg import Twist
+from geometry_msgs.msg import Twist, Pose
 
 # specify directions
 FRONT_LEFT = 0
@@ -24,6 +24,7 @@ BACK_RIGHT = 1
 
 STAT_STOP_BOT = 'stop_bot'
 STAT_MAPPING = 'mapping'
+STAT_SAVE = 'save_token'
 
 PI = 3.1415926535897
 
@@ -51,17 +52,19 @@ class MovementController:
         self._current_goal_msg = None
         self._avoid_obstacle = rospy.Subscriber('/obstacle_avoidance', Int16, self.avoid_obstacle_callback)
         self._turtlebot_pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
-        self._odom_sub = rospy.Subscriber('/odom', Odometry, self.pose_callback)
-        self._current_pose = None
+        print 'wait for robot pose'
+        msg = rospy.wait_for_message('/robot_pose', Pose)
+        print 'robot pose recived'
+        self._start_x = msg.position.x
+        self._start_y = msg.position.y
         self._free_direction = None
         self._old_free_direction = None
         self._interrupt_sub = rospy.Subscriber('/interrupt_msg', String, self.interrupt_callback)
+        self._interrupt_pub = rospy.Publisher('/interrupt_msg', String)
 
     def interrupt_callback(self, msg):
-        self._status = msg.data
-
-    def pose_callback(self, msg):
-        self._current_pose = msg.twist.twist
+        if msg.data is STAT_MAPPING or STAT_STOP_BOT:
+            self._status = msg.data
 
     def labyrinth_explorer_callback(self, data):
         self._old_goal_msg = self._current_goal_msg
@@ -99,7 +102,6 @@ class MovementController:
         twist.angular.z = 0.0
         self._turtlebot_pub.publish(twist)
 
-
     """
     speed_x: speed of robot in x axis
     speed_angle: rotationspeed in Degree
@@ -136,10 +138,14 @@ class MovementController:
         # rotate at start for better map
         # self.rotate_robot()
         while not rospy.is_shutdown():
+            print self._status
             if self._status is STAT_MAPPING:
                 #Service update
                 print 'get next pose'
                 response = self._explore_service(ExploreLabyrinthRequest(0, 0))
+                if response.x == self._start_x and response.y == self._start_y:
+                    self._interrupt_pub.publish("STAT_SAVE")
+                    print 'FINISH'
                 goal = MoveBaseGoal()
                 goal.target_pose.header.frame_id = "/map"
                 goal.target_pose.header.stamp = rospy.Time.now()
@@ -151,7 +157,7 @@ class MovementController:
                 print response.x
                 print response.y
                 self._move_base_client.send_goal(self._current_goal_msg)
-                self._move_base_client.wait_for_result(rospy.Duration.from_sec(20))
+                self._move_base_client.wait_for_result(rospy.Duration.from_sec(40))
                 self.stop_move_base()
             elif self._status is STAT_STOP_BOT:
                 self.stop_move_base()

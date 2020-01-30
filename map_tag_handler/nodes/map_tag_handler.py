@@ -12,6 +12,7 @@ from actionlib_msgs.msg import GoalStatus
 from std_msgs.msg import Int16, Int16MultiArray
 from explore_labyrinth_srv.srv import *
 from map_tag_handler_srv.srv import *
+from save_tag_msg.msg import *
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal, MoveBaseResult
 from nav_msgs.msg import OccupancyGrid
 from nav_msgs.msg import Odometry
@@ -34,24 +35,23 @@ class MapTagHandler:
 
     def __init__(self):
         self._provide_tag_service = rospy.Service('/get_next_Tag', TagService, self.provide_next_tag)
-        self._save_tags_service = rospy.Service('/save_tags', TagService, self.save_tags)
+        self._save_tags_service = rospy.Subscriber('/save_tags', SaveTag, self.save_tags)
         occupancy_grid = rospy.wait_for_message("/map", OccupancyGrid)
         meta_data = occupancy_grid.info
         self._offset_x = meta_data.origin.position.x
         self._offset_y = meta_data.origin.position.y
         self._resolution = meta_data.resolution
 
-        self._active_tags = None
-        self._my_fount_tags_x = None
-        self._my_fount_tags_y = None
-
-        self._colaborator_fount_tags_x = None
-        self._colaborator_fount_tags_x = None
-
-
-        self.read_tags_from_file()
-        self._distance_values = None
-        self.calculate_distances()
+        # self._active_tags = None
+        # self._my_fount_tags_x = None
+        # self._my_fount_tags_y = None
+        #
+        # self._colaborator_fount_tags_x = None
+        # self._colaborator_fount_tags_x = None
+        #
+        # self.read_tags_from_file()
+        # self._distance_values = None
+        # self.calculate_distances()
 
 
 
