@@ -53,8 +53,6 @@ class MapTagHandler:
         # self._distance_values = None
         # self.calculate_distances()
 
-
-
     def provide_next_tag(self, msg):
         i = 0
         while i < len(self._active_tags):
@@ -107,7 +105,6 @@ class MapTagHandler:
         xfile.close()
         yfile.close()
 
-# check start vel
     def calculate_distances(self):
         print 'Calculating distances'
         occupancy_grid = rospy.wait_for_message("/map", OccupancyGrid)

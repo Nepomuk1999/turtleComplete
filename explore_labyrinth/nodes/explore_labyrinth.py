@@ -20,7 +20,7 @@ if os.name == 'nt':
 else:
     import termios
 
-GOAL_MIN_DIST_TO_WALL = 8
+GOAL_MIN_DIST_TO_WALL = 6
 ROBOT_KNOWN_SPACE = 10
 
 
@@ -61,7 +61,7 @@ class LabyrinthExplorer:
         self._current_x = self._current_pose.position.x
         self._current_y = self._current_pose.position.y
         self._current_x, self._current_y = self.transform_to_pos(self._current_x, self._current_y)
-        if self._callback_counter % 3 == 0:
+        if self._callback_counter % 2 == 0:
             self.update_seen_map(self._current_pose.orientation)
 
     def update_seen_map(self, orientation):
@@ -74,8 +74,8 @@ class LabyrinthExplorer:
                           [0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0],
                           [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0],
                           [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                          [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                          [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                          [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                          [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
                           [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
                           [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
                           [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -96,8 +96,8 @@ class LabyrinthExplorer:
                                 [0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
                                 [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
                                 [0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                                [0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                                [0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                                [0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                                [0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
                                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
                                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
                                 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -268,7 +268,22 @@ class LabyrinthExplorer:
                 if (current_map[y][x] == 0) and (self._seen_map[y][x] == -1):
                     current_map[y][x] = -1
         print 'maps matched'
+        current_map = self.inflate_wals_seen(current_map, 2)
         return current_map
+
+    def inflate_wals_seen(self, trimmed_map, inflation_factor):
+        to_be_inflated = np.where(trimmed_map == 1)
+        map_size_y, map_size_x = trimmed_map.shape
+        x_list = to_be_inflated[1]
+        y_list = to_be_inflated[0]
+        for i in range(0, len(x_list)):
+            x = x_list[i]
+            y = y_list[i]
+            for j in range(0 - inflation_factor, inflation_factor + 1):
+                for k in range(0 - inflation_factor, inflation_factor + 1):
+                    if 0 < x + j < map_size_x - 1 and 0 < y + k < map_size_y - 1:
+                        trimmed_map[y+k][x+j] = 0
+        return trimmed_map
 
     def movementcontroller(self, goal):
         print 'calc next pos'
@@ -285,9 +300,9 @@ class LabyrinthExplorer:
             # plt.imshow(self._seen_map, cmap='hot', interpolation='nearest')
             # self._seen_map[self._seen_map > 1] = 1
             # plt.show()
-            # f1 = plt.figure(2)
-            # plt.imshow(cleared_map, cmap='hot', interpolation='nearest')
-            # plt.show()
+            f1 = plt.figure(2)
+            plt.imshow(cleared_map, cmap='hot', interpolation='nearest')
+            plt.show()
         next_x, next_y = self.bfs(cleared_map, self._current_x, self._current_y)
         self._node_use_counter = self._node_use_counter + 1
         next_xm, next_ym = self.transform_to_meter(next_x, next_y)
@@ -327,7 +342,7 @@ class MapTrimmer:
         return current_map
 
     def inflate_wals(self, trimmed_map, inflation_factor):
-        to_be_inflated = np.where(trimmed_map == 5)
+        to_be_inflated = np.where(trimmed_map == 1)
         map_size_y, map_size_x = trimmed_map.shape
         x_list = to_be_inflated[1]
         y_list = to_be_inflated[0]

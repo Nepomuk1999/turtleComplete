@@ -66,7 +66,9 @@ class CameraController:
         self._current_y_pub = None
         self._current_orientation_pub = None
         self._phi_pub = None
+        print 'wait pose'
         rospy.wait_for_message('/robot_pose', Pose)
+        print 'got pose'
         self._found_x = []
         self._found_y = []
         self._interrupt_pub = rospy.Publisher('/interrupt_msg', String, queue_size=10)
@@ -83,27 +85,28 @@ class CameraController:
     def control_loop(self):
         while not rospy.is_shutdown():
             # TODO: checkn if 0 check is good
-            if self._blob_x is not 0:
-                print 'apfel'
+            if self._blob_x != 0:
                 rc_blob_x, rc_blob_y = self.get_pose_token_robot_coord(self._blob_x, self._blob_y)
                 mc_blob_x, mc_blob_y = self.get_pose_token_map(rc_blob_x, rc_blob_y, self._last_stamp)
-                if not self.glob_x_y_contains_in_range(mc_blob_x, mc_blob_y):
-                    print 'blob x:', mc_blob_x
-                    print 'blob_x:', mc_blob_y
-                    self._pos_token_glob_x.append(mc_blob_x)
-                    self._pos_token_glob_y.append(mc_blob_y)
-                    msg = rospy.wait_for_message("/map", OccupancyGrid)
-                    grid = msg.data
-                    for i in range(0, len(self._pos_token_glob_x)):
-                        grid[self._pos_token_glob_y][self._pos_token_glob_x] = 10
-                    plt.imshow(grid, cmap='hot', interpolation='nearest')
-                    plt.show()
-                    time.sleep(10)
-                    plt.close()
+                if mc_blob_x and mc_blob_y is not 0:
+                    if not self.glob_x_y_contains_in_range(mc_blob_x, mc_blob_y):
+                        print 'blob x:', mc_blob_x
+                        print 'blob_x:', mc_blob_y
+                        self._pos_token_glob_x.append(mc_blob_x)
+                        self._pos_token_glob_y.append(mc_blob_y)
+                        msg = rospy.wait_for_message("/map", OccupancyGrid)
+                        grid = np.array(msg.data)
+                        grid = grid.reshape((msg.info.height, msg.info.width))
+                        for i in range(0, len(self._pos_token_glob_x)):
+                            grid[self._pos_token_glob_y[i]][self._pos_token_glob_x[i]] = -1
+                            plt.imshow(grid, cmap='hot', interpolation='nearest')
+                            plt.show()
+                            time.sleep(10)
+                            plt.close()
 
     def blobb_callback(self, blob_data):
         stamp_nsec = blob_data.header.stamp.nsecs
-        if stamp_nsec is not 0:
+        if stamp_nsec != 0:
             print blob_data.blocks
             self._last_stamp = blob_data.header.stamp
             self._blob_y = blob_data.blocks[0].roi.x_offset
@@ -157,12 +160,19 @@ class CameraController:
         ps.header.stamp = blob_data_stamp
         cx, cy = self.transform_to_meter(rc_blob_x, rc_blob_y)
         ps.point = Point(x=cx, y=cy)
-        ps_map = self._tl.transformPoint('map', ps)
-        mx = ps_map.point.x
-        my = ps_map.point.y
+        try:
+            ps_map = self._tl.transformPoint('map', ps)
+            mx = ps_map.point.x
+            my = ps_map.point.y
+            map_x, map_y = self.transform_to_pos(mx, my)
+            return map_x, map_y
+        except Exception as e:
+            print e
+            if len(self._pos_token_glob_x) is 0:
+                return 0, 0
+            else:
+                return self._pos_token_glob_x[0], self._pos_token_glob_y[0]
 
-        map_x, map_y = self.transform_to_pos(mx, my)
-        return map_x, map_y
 
 
 
