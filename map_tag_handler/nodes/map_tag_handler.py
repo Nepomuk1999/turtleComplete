@@ -16,7 +16,7 @@ from save_tag_msg.msg import *
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal, MoveBaseResult
 from nav_msgs.msg import OccupancyGrid
 from nav_msgs.msg import Odometry
-from geometry_msgs.msg import Twist
+from geometry_msgs.msg import Twist, Point
 
 # specify directions
 FRONT_LEFT = 0
@@ -26,6 +26,9 @@ BACK_RIGHT = 3
 
 PI = 3.1415926535897
 
+# TODO implement tolerance for tag matching
+COMUNICATION_TOLEANCE = 0.4
+
 if os.name == 'nt':
     pass
 else:
@@ -34,13 +37,21 @@ else:
 class MapTagHandler:
 
     def __init__(self):
-        self._provide_tag_service = rospy.Service('/get_next_Tag', TagService, self.provide_next_tag)
-        self._save_tags_service = rospy.Subscriber('/save_tags', SaveTag, self.save_tags)
-        occupancy_grid = rospy.wait_for_message("/map", OccupancyGrid)
+        self._provide_tag_service = rospy.Service('get_next_Tag', TagService, self.provide_next_tag)
+        self._save_tags_service = rospy.Subscriber('save_tags', SaveTag, self.save_tags)
+        occupancy_grid = rospy.wait_for_message("map", OccupancyGrid)
         meta_data = occupancy_grid.info
         self._offset_x = meta_data.origin.position.x
         self._offset_y = meta_data.origin.position.y
         self._resolution = meta_data.resolution
+
+        top_ser = rospy.get_param('topic_searching')
+        top_rea = rospy.get_param('topic_reached')
+        self._search_pub = rospy.Publisher(top_ser, Point, queue_size=10)
+        self._search_sub = rospy.Subscriber(top_ser, Point, määäääääää)
+
+        self._reached_pub = rospy.Publisher(top_rea, Point, queue_size=10)
+        self._reached_sub = rospy.Subscriber(top_rea, Point, määäääää)
 
         # self._active_tags = None
         # self._my_fount_tags_x = None
@@ -107,7 +118,7 @@ class MapTagHandler:
 
     def calculate_distances(self):
         print 'Calculating distances'
-        occupancy_grid = rospy.wait_for_message("/map", OccupancyGrid)
+        occupancy_grid = rospy.wait_for_message("map", OccupancyGrid)
         meta_data = occupancy_grid.info
         occupancy_map = occupancy_grid.data
         trimmed_map = np.array(occupancy_map)

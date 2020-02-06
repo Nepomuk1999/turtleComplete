@@ -20,7 +20,7 @@ if os.name == 'nt':
 else:
     import termios
 
-GOAL_MIN_DIST_TO_WALL = 6
+GOAL_MIN_DIST_TO_WALL = 8
 ROBOT_KNOWN_SPACE = 10
 
 
@@ -30,11 +30,11 @@ class LabyrinthExplorer:
     def __init__(self):
         self._callback_counter = 0
         self._node_use_counter = 1
-        self.match_divider = 15
-        self._pub = rospy.Publisher('/explorer_goal_pos_result', MoveBaseGoal, queue_size=10)
+        self.match_divider = 150
+        self._pub = rospy.Publisher('explorer_goal_pos_result', MoveBaseGoal, queue_size=10)
         print 'publisher initialized'
         self.map_trimmer = MapTrimmer()
-        self._occupancy_grid = rospy.wait_for_message('/map', OccupancyGrid)
+        self._occupancy_grid = rospy.wait_for_message('map', OccupancyGrid)
         self._occupancy_map = self._occupancy_grid.data
         self._offset_x = self._occupancy_grid.info.origin.position.x
         self._offset_y = self._occupancy_grid.info.origin.position.y
@@ -47,13 +47,13 @@ class LabyrinthExplorer:
         # reshape map
         trimmed_map = np.array(self._occupancy_map)
         self._occupancy_map = trimmed_map.reshape((self._map_width, self._map_height))
-        self._pose_pub_sub = rospy.Subscriber('/robot_pose', Pose, self.pose_callback)
+        self._pose_pub_sub = rospy.Subscriber('robot_pose', Pose, self.pose_callback)
         self._current_pose = None
         self._current_x = None
         self._current_y = None
-        rospy.wait_for_message('/robot_pose', Pose)
+        rospy.wait_for_message('robot_pose', Pose)
         self._start_x, self._start_y = self.transform_to_pos(self._current_pose.position.x, self._current_pose.position.y)
-        self._as = rospy.Service('/explorer_goal_pos', ExploreLabyrinth, self.movementcontroller)
+        self._as = rospy.Service('explorer_goal_pos', ExploreLabyrinth, self.movementcontroller)
 
     def pose_callback(self, msg):
         self._callback_counter = self._callback_counter + 1
@@ -279,16 +279,17 @@ class LabyrinthExplorer:
         for i in range(0, len(x_list)):
             x = x_list[i]
             y = y_list[i]
-            for j in range(0 - inflation_factor, inflation_factor + 1):
-                for k in range(0 - inflation_factor, inflation_factor + 1):
+            for j in range(-inflation_factor, inflation_factor + 1):
+                for k in range(-inflation_factor, inflation_factor + 1):
                     if 0 < x + j < map_size_x - 1 and 0 < y + k < map_size_y - 1:
-                        trimmed_map[y+k][x+j] = 0
+                        if trimmed_map[y+k][x+j] != 1:
+                            trimmed_map[y+k][x+j] = 0
         return trimmed_map
 
     def movementcontroller(self, goal):
         print 'calc next pos'
         # get map to avoid update while processing
-        self._occupancy_grid = rospy.wait_for_message("/map", OccupancyGrid)
+        self._occupancy_grid = rospy.wait_for_message("map", OccupancyGrid)
         self.update_map_data(self._occupancy_grid)
         # self.update_map_data(self._occupancy_grid)
         cleared_map = self.map_trimmer.trim_map(self._occupancy_map, self._current_x, self._current_y,

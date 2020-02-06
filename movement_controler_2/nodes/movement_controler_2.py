@@ -37,22 +37,22 @@ else:
 class MovementController:
 
     def __init__(self):
-        self._move_base_client = actionlib.SimpleActionClient('/move_base', MoveBaseAction)
+        self._move_base_client = actionlib.SimpleActionClient('move_base', MoveBaseAction)
         self._move_base_client.wait_for_server()
         print 'move base server connected'
-        self._labyrinth_explorer = rospy.Subscriber('/explorer_goal_pos_result', MoveBaseGoal,
+        self._labyrinth_explorer = rospy.Subscriber('explorer_goal_pos_result', MoveBaseGoal,
                                                     self.labyrinth_explorer_callback)
-        self._tag_service = rospy.ServiceProxy('/get_next_Tag', TagService, headers=None)
+        self._tag_service = rospy.ServiceProxy('get_next_Tag', TagService, headers=None)
         print 'wait for explorer service'
-        rospy.wait_for_service('/explorer_goal_pos')
-        self._explore_service = rospy.ServiceProxy('/explorer_goal_pos', ExploreLabyrinth, headers=None)
+        rospy.wait_for_service('xplorer_goal_pos')
+        self._explore_service = rospy.ServiceProxy('explorer_goal_pos', ExploreLabyrinth, headers=None)
         print 'labirynth explore service connected'
         self._status = 'find_pos'
         self._old_goal_msg = None
         self._current_goal_msg = None
-        self._avoid_obstacle = rospy.Subscriber('/obstacle_avoidance', Int16, self.avoid_obstacle_callback)
-        self._turtlebot_pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
-        self._odom_sub = rospy.Subscriber('/odom', Odometry, self.pose_callback)
+        self._avoid_obstacle = rospy.Subscriber('obstacle_avoidance', Int16, self.avoid_obstacle_callback)
+        self._turtlebot_pub = rospy.Publisher('cmd_vel', Twist, queue_size=10)
+        self._odom_sub = rospy.Subscriber('odom', Odometry, self.pose_callback)
         self._current_pose = None
         self._free_direction = None
         self._old_free_direction = None
@@ -140,7 +140,7 @@ class MovementController:
                 self.stop_turtlebot()
                 self.move_straight(VEL_STRAIGHT)
                 t0 = rospy.Time.now().to_sec() + TIME_STRAIGHT
-                while self._free_direction is EVERYWHERE and t0 < rospy.Time.now().to_sec()
+                while self._free_direction is EVERYWHERE and t0 < rospy.Time.now().to_sec():
                     pass
                 self.stop_turtlebot()
                 #pose est abfrage

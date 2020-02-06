@@ -1,8 +1,10 @@
 <launch>
-  <arg name="model" default="$(env TURTLEBOT3_MODEL)" doc="model type [burger]"/>
-  <param name="model" value="$(arg model)"/>
+    <group ns="$(env ROS_NAMESPACE)">
+        <arg name="model" default="$(env TURTLEBOT3_MODEL)" doc="model type [burger]"/>
+        <param name="model" value="$(arg model)"/>
 
-  <!-- turtlebot3_teleop_key already has its own built in velocity smoother -->
-  <node pkg="camera_node" type="camera_node.py" name="camera_node"  output="screen">
-  </node>
+        <!-- turtlebot3_teleop_key already has its own built in velocity smoother -->
+        <node pkg="camera_node" type="camera_node.py" name="camera_node"  output="screen">
+        </node>
+    </group>
 </launch>

@@ -1,8 +1,11 @@
 <launch>
-  <arg name="model" default="$(env TURTLEBOT3_MODEL)" doc="model type [burger]"/>
-  <param name="model" value="$(arg model)"/>
-
-  <!-- turtlebot3_teleop_key already has its own built in velocity smoother -->
-  <node pkg="map_tag_handler" type="map_tag_handler.py" name="map_tag_handler"  output="screen">
-  </node>
+    <group ns="$(env ROS_NAMESPACE)">
+        <arg name="model" default="$(env TURTLEBOT3_MODEL)" doc="model type [burger]"/>
+        <param name="model" value="$(arg model)"/>
+        <!-- turtlebot3_teleop_key already has its own built in velocity smoother -->
+        <node pkg="map_tag_handler" type="map_tag_handler.py" name="map_tag_handler"  output="screen">
+            <param name="topic_searching" value="$(env COOP_SEARCHING_TOPIC)" />
+            <param name="topic_reached" value="$(env COOP_REACHED_TOPIC)" />
+        </node>
+    </group>
 </launch>

@@ -36,31 +36,31 @@ else:
 class MovementController:
 
     def __init__(self):
-        self._move_base_client = actionlib.SimpleActionClient('/move_base', MoveBaseAction)
+        self._move_base_client = actionlib.SimpleActionClient('move_base', MoveBaseAction)
         self._move_base_client.wait_for_server()
         print 'move base server connected'
-        self._labyrinth_explorer = rospy.Subscriber('/explorer_goal_pos_result', MoveBaseGoal,
+        self._labyrinth_explorer = rospy.Subscriber('explorer_goal_pos_result', MoveBaseGoal,
                                                     self.labyrinth_explorer_callback)
         # self._labyrinth_explorer_clint = actionlib.SimpleActionClient('/explorer_goal_pos', MoveBaseAction)
         # self._labyrinth_explorer_clint.wait_for_server()
         print 'wait for explorer service'
-        rospy.wait_for_service('/explorer_goal_pos')
-        self._explore_service = rospy.ServiceProxy('/explorer_goal_pos', ExploreLabyrinth, headers=None)
+        rospy.wait_for_service('explorer_goal_pos')
+        self._explore_service = rospy.ServiceProxy('explorer_goal_pos', ExploreLabyrinth, headers=None)
         print 'labirynth explore service connected'
         self._status = STAT_MAPPING
         self._old_goal_msg = None
         self._current_goal_msg = None
-        self._avoid_obstacle = rospy.Subscriber('/obstacle_avoidance', Int16, self.avoid_obstacle_callback)
-        self._turtlebot_pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
+        self._avoid_obstacle = rospy.Subscriber('obstacle_avoidance', Int16, self.avoid_obstacle_callback)
+        self._turtlebot_pub = rospy.Publisher('cmd_vel', Twist, queue_size=10)
         print 'wait for robot pose'
-        msg = rospy.wait_for_message('/robot_pose', Pose)
+        msg = rospy.wait_for_message('robot_pose', Pose)
         print 'robot pose recived'
         self._start_x = msg.position.x
         self._start_y = msg.position.y
         self._free_direction = None
         self._old_free_direction = None
-        self._interrupt_sub = rospy.Subscriber('/interrupt_msg', String, self.interrupt_callback)
-        self._interrupt_pub = rospy.Publisher('/interrupt_msg', String)
+        self._interrupt_sub = rospy.Subscriber('interrupt_msg', String, self.interrupt_callback)
+        self._interrupt_pub = rospy.Publisher('interrupt_msg', String)
 
     def interrupt_callback(self, msg):
         if msg.data is STAT_MAPPING or STAT_STOP_BOT:
@@ -147,7 +147,7 @@ class MovementController:
                     self._interrupt_pub.publish("STAT_SAVE")
                     print 'FINISH'
                 goal = MoveBaseGoal()
-                goal.target_pose.header.frame_id = "/map"
+                goal.target_pose.header.frame_id = "map"
                 goal.target_pose.header.stamp = rospy.Time.now()
                 goal.target_pose.pose.position.x = response.x
                 goal.target_pose.pose.position.y = response.y

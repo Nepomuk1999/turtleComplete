@@ -31,7 +31,7 @@ BACK_RIGHT = 1
 class AvoidObstacless:
 
     def __init__(self):
-        self._lidar_data = rospy.Subscriber('/scan', LaserScan, self.lidar_callback)
+        self._lidar_data = rospy.Subscriber('scan', LaserScan, self.lidar_callback)
         self._ranges = None
         while self._ranges is None:
             time.sleep(2)
@@ -39,7 +39,7 @@ class AvoidObstacless:
         self._oneigthy_degree_index = len(self._ranges)/2
         self._twoseventy_degree_index = self._ninety_degree_index + self._oneigthy_degree_index
         self._threesixty_degree_index = len(self._ranges)
-        self._pub = rospy.Publisher('/obstacle_avoidance', Int16, queue_size=10)
+        self._pub = rospy.Publisher('obstacle_avoidance', Int16, queue_size=10)
         print '90', self._ninety_degree_index
         print '180', self._oneigthy_degree_index
         print '270', self._twoseventy_degree_index

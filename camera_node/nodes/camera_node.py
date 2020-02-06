@@ -34,7 +34,7 @@ STAT_STOP_BOT = 'stop_bot'
 STAT_MAPPING = 'mapping'
 STAT_SAVE = 'save_token'
 
-ELEMENT_RANGE_WITH = 2  # 2 = 40 cm + 5cm = 45cm coords are calculated
+ELEMENT_RANGE_WITH = 0
 
 if os.name == 'nt':
     pass
@@ -46,7 +46,7 @@ class CameraController:
     def __init__(self):
         self._pos_token_glob_x = []
         self._pos_token_glob_y = []
-        self.blob_sub = rospy.Subscriber('/block_data', PixyData, self.blobb_callback)
+        self.blob_sub = rospy.Subscriber('block_data', PixyData, self.blobb_callback)
         self._blob_y = 0
         self._blob_x = 0
         self._last_stamp = Time()
@@ -60,21 +60,21 @@ class CameraController:
         # self._current_orientation = None
         # self._phi = None
         # rospy.wait_for_message('/odom', Odometry)
-        self._pose_pub_sub = rospy.Subscriber('/robot_pose', Pose, self.pose_pub_callback)
+        self._pose_pub_sub = rospy.Subscriber('robot_pose', Pose, self.pose_pub_callback)
         self._current_pose_pub = None
         self._current_x_pub = None
         self._current_y_pub = None
         self._current_orientation_pub = None
         self._phi_pub = None
         print 'wait pose'
-        rospy.wait_for_message('/robot_pose', Pose)
+        rospy.wait_for_message('robot_pose', Pose)
         print 'got pose'
         self._found_x = []
         self._found_y = []
-        self._interrupt_pub = rospy.Publisher('/interrupt_msg', String, queue_size=10)
-        self._interrupt_pub = rospy.Subscriber('/save_tags', String, self.interrupt_callback)
+        self._interrupt_pub = rospy.Publisher('interrupt_msg', String, queue_size=10)
+        self._interrupt_pub = rospy.Subscriber('save_tags', String, self.interrupt_callback)
         #self._save_tags_pub = rospy.Publisher('/save_tags', TagService)
-        msg = rospy.wait_for_message("/map", OccupancyGrid)
+        msg = rospy.wait_for_message("map", OccupancyGrid)
         meta_data = msg.info
         self._offset_x = meta_data.origin.position.x
         self._offset_y = meta_data.origin.position.y
@@ -133,7 +133,7 @@ class CameraController:
         x_element_range_upper_bound = current_token_x + ELEMENT_RANGE_WITH
         y_element_range_lower_bound = current_token_y - ELEMENT_RANGE_WITH
         y_element_range_upper_bound = current_token_y + ELEMENT_RANGE_WITH
-        if  not np.empty(self._pos_token_glob_x):
+        if not np.empty(self._pos_token_glob_x):
             for i in range (0, len(self._pos_token_glob_x)):
                 if not (x_element_range_lower_bound <= self._pos_token_glob_x[i] <= x_element_range_upper_bound):
                     if not (y_element_range_lower_bound <= self._pos_token_glob_y[i] <= y_element_range_upper_bound):
@@ -156,7 +156,7 @@ class CameraController:
 
     def get_pose_token_map(self, rc_blob_x, rc_blob_y, blob_data_stamp):
         ps = PointStamped()
-        ps.header.frame_id = '/base_footprint'
+        ps.header.frame_id = 'base_footprint'
         ps.header.stamp = blob_data_stamp
         cx, cy = self.transform_to_meter(rc_blob_x, rc_blob_y)
         ps.point = Point(x=cx, y=cy)
