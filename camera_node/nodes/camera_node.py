@@ -34,7 +34,7 @@ STAT_STOP_BOT = 'stop_bot'
 STAT_MAPPING = 'mapping'
 STAT_SAVE = 'save_token'
 
-ELEMENT_RANGE_WITH = 0
+ELEMENT_RANGE_WITH = 2  # 2 = 40 cm + 5cm = 45cm coords are calculated
 
 if os.name == 'nt':
     pass
@@ -47,8 +47,8 @@ class CameraController:
         self._pos_token_glob_x = []
         self._pos_token_glob_y = []
         self.blob_sub = rospy.Subscriber('block_data', PixyData, self.blobb_callback)
-        self._blob_y = 0
-        self._blob_x = 0
+        self._blob_y = 0.0
+        self._blob_x = 0.0
         self._last_stamp = Time()
         #self._current_image = None
         #self._binary_image = None
@@ -87,17 +87,22 @@ class CameraController:
             # TODO: checkn if 0 check is good
             if self._blob_x != 0:
                 rc_blob_x, rc_blob_y = self.get_pose_token_robot_coord(self._blob_x, self._blob_y)
+                print 'rc_blob_x', rc_blob_x
+                print 'rc_blob_y', rc_blob_y
                 mc_blob_x, mc_blob_y = self.get_pose_token_map(rc_blob_x, rc_blob_y, self._last_stamp)
+
                 if mc_blob_x and mc_blob_y is not 0:
                     if not self.glob_x_y_contains_in_range(mc_blob_x, mc_blob_y):
                         print 'blob x:', mc_blob_x
-                        print 'blob_x:', mc_blob_y
+                        print 'blob_y:', mc_blob_y
                         self._pos_token_glob_x.append(mc_blob_x)
                         self._pos_token_glob_y.append(mc_blob_y)
                         msg = rospy.wait_for_message("/map", OccupancyGrid)
                         grid = np.array(msg.data)
                         grid = grid.reshape((msg.info.height, msg.info.width))
                         for i in range(0, len(self._pos_token_glob_x)):
+                            print 'x ', self._pos_token_glob_x[i]
+                            print 'y ', self._pos_token_glob_y[i]
                             grid[self._pos_token_glob_y[i]][self._pos_token_glob_x[i]] = -1
                             plt.imshow(grid, cmap='hot', interpolation='nearest')
                             plt.show()
@@ -107,7 +112,7 @@ class CameraController:
     def blobb_callback(self, blob_data):
         stamp_nsec = blob_data.header.stamp.nsecs
         if stamp_nsec != 0:
-            print blob_data.blocks
+            #print blob_data.blocks
             self._last_stamp = blob_data.header.stamp
             self._blob_y = blob_data.blocks[0].roi.x_offset
             self._blob_x = blob_data.blocks[0].roi.y_offset
@@ -116,7 +121,7 @@ class CameraController:
         if msg.data is STAT_SAVE:
             msg = SaveTag()
             msg.x_values = self._pos_token_glob_x
-            msg.x_values = self._pos_token_glob_y
+            msg.y_values = self._pos_token_glob_y
             self._save_tags_pub.publish(msg)
 
     def pose_pub_callback(self, msg):
@@ -145,14 +150,19 @@ class CameraController:
         middel_width = blob_x  # round((width_1+width_2)/2)
         print 'mw', middel_width
         print 'mh', middel_height
-        point_1 = np.array([middel_width, middel_height, 1])
-        H = np.array([[96.0070653929683, 308.829767885900, -14250.2707091498],
-                      [19.2638464106271, 738.626135977933, -22187.7158339254],
-                      [0.0143717792767875, 0.514067001440494, 1]])
+        point_1 = np.array([middel_height, middel_width, 1])
+        H = np.array([[-194.195662126880, -735.450367159268, 31412.8290557827],
+                      [-18.9853166744869, -1388.56217942682, 49050.4332793690],
+                      [-0.0178537441136136, -1.22612512129385, 1]])
+        # H = np.array([[96.0070653929683, 308.829767885900, -14250.2707091498],
+        #               [19.2638464106271, 738.626135977933, -22187.7158339254],
+        #               [0.0143717792767875, 0.514067001440494, 1]])
         point_2 = H.dot(point_1)
         py = point_2[0] / point_2[2]
         px = point_2[1] / point_2[2]
-        return px, py
+        py_robot = (1200 / 2 - py) / 1000
+        px_robot = (1200 - px) / 1000
+        return px_robot, py_robot
 
     def get_pose_token_map(self, rc_blob_x, rc_blob_y, blob_data_stamp):
         ps = PointStamped()
