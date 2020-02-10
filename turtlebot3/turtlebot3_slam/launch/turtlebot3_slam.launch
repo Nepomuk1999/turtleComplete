@@ -15,9 +15,13 @@
         <arg name="model" value="$(arg model)"/>
         <arg name="configuration_basename" value="$(arg configuration_basename)"/>
         </include>
+        
+        <node pkg="robot_pose_publisher" type="robot_pose_publisher" name="robot_pose_publisher">
+                <param name="publish_frequency" type="double" value="30.0" />
+        </node>
 
         <!-- rviz -->
-        <group if="$(arg open_rviz)">
+        <group if="$(arg open_rviz)" ns="bauwen">
             <node pkg="rviz" type="rviz" name="rviz" required="true"
                 args="-d $(find turtlebot3_slam)/rviz/turtlebot3_$(arg slam_methods).rviz"/>
         </group>
