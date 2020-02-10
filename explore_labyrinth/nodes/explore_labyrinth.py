@@ -5,7 +5,10 @@ import sys
 import time
 import traceback
 import actionlib
-import matplotlib.pyplot as plt
+import cv2
+import matplotlib
+matplotlib.use('TkAgg')
+from matplotlib import pyplot as plt
 import numpy as np
 import rospy
 from explore_labyrinth_srv.srv import *
@@ -14,6 +17,7 @@ from nav_msgs.msg import OccupancyGrid
 from nav_msgs.msg import Odometry
 from tf.transformations import euler_from_quaternion, quaternion_from_euler
 from geometry_msgs.msg import Twist, Pose, PointStamped, Point
+from scipy import ndimage, misc
 
 if os.name == 'nt':
     pass
@@ -22,6 +26,7 @@ else:
 
 GOAL_MIN_DIST_TO_WALL = 8
 ROBOT_KNOWN_SPACE = 10
+MASK_DISTANCE = 12
 
 
 # Publisher
@@ -61,8 +66,8 @@ class LabyrinthExplorer:
         self._current_x = self._current_pose.position.x
         self._current_y = self._current_pose.position.y
         self._current_x, self._current_y = self.transform_to_pos(self._current_x, self._current_y)
-        if self._callback_counter % 2 == 0:
-            self.update_seen_map(self._current_pose.orientation)
+        #if self._callback_counter % 2 == 0:
+        self.update_seen_map(self._current_pose.orientation)
 
     def update_seen_map(self, orientation):
         phi = self.get_rotation(orientation)
@@ -161,6 +166,7 @@ class LabyrinthExplorer:
         map_size_y, map_size_x = np.shape(current_map)
         closed_list = []
         first_run = True
+        set_to_zero = False
         while len(path) > 0:
             # if first_run:
             #     robot_pos_x = robot_pos_x + 2
@@ -175,15 +181,18 @@ class LabyrinthExplorer:
                 continue
             # unknown cell found
             if current_map[current_y, current_x] == -1:
-                cx, cy = self.next_known_cell(current_x, current_y, current_map)
-                if self.match_divider == 1 and (cy == self._start_y and cx == self._start_x):
-                    return self._start_x, self._start_y,
-                if cy == self._start_y and cx == self._start_x:
-                    print 'set to robot pose'
-                    self.match_divider = 1
-                    cx = self._current_x
-                    cy = self._current_y
-                return cx, cy
+                if self.match_divider == 1:
+                    current_map, set_to_zero = self.mark_small_unseen_as_seen(current_map, current_x, current_y)
+                if not set_to_zero:
+                    cx, cy = self.next_known_cell(current_x, current_y, current_map)
+                    if self.match_divider == 1 and (cy == self._start_y and cx == self._start_x):
+                        return self._start_x, self._start_y,
+                    if cy == self._start_y and cx == self._start_x:
+                        print 'set to robot pose'
+                        self.match_divider = 1
+                        cx = self._current_x
+                        cy = self._current_y
+                    return cx, cy
             # add all neighbours of current cell
             directions = np.array([[current_x - 1, current_y], [current_x + 1, current_y],
                                    [current_x, current_y - 1], [current_x, current_y + 1]])
@@ -193,7 +202,14 @@ class LabyrinthExplorer:
                     if not self.cointains_pos(i, path):
                         path.append(i)
         first_run = False
+
         print "return start pose"
+        if self.match_divider != 1:
+            print 'set to cp'
+            self.match_divider = 1
+            cx = self._current_x
+            cy = self._current_y
+            return cx, cy
         return self._start_x, self._start_y
 
     def cointains_pos(self, array, array_array):
@@ -283,8 +299,37 @@ class LabyrinthExplorer:
                 for k in range(-inflation_factor, inflation_factor + 1):
                     if 0 < x + j < map_size_x - 1 and 0 < y + k < map_size_y - 1:
                         if trimmed_map[y+k][x+j] != 1:
+                            #TODO check if wall is in between maybe
                             trimmed_map[y+k][x+j] = 0
         return trimmed_map
+
+    def mark_small_unseen_as_seen(self, map, x, y):
+        b = False
+        md = 2
+        lx = x - (md / 2)
+        ux = x + (md / 2)+1
+        ly = y - (md / 2)
+        uy = y + (md / 2)+1
+        check_area = map[ly:uy, lx:ux]
+        print check_area
+        val_of_unseen = np.sum(check_area == -1)
+        print val_of_unseen
+        if val_of_unseen <= 4:
+            self._seen_map[y, x] = 0
+            map[y, x] = 0
+            b = True
+        return map, b
+
+    def mask_current_pose_as_seen(self, map, x, y):
+        lx = x - (MASK_DISTANCE/2)
+        ux = x + (MASK_DISTANCE/2)
+        ly = y - (MASK_DISTANCE/2)
+        uy = y + (MASK_DISTANCE/2)
+        for i in range(lx, ux + 1):
+            for j in range(ly, uy + 1):
+                if map[j, i] == -1:
+                    map[j, i] = 0
+        return map
 
     def movementcontroller(self, goal):
         print 'calc next pos'
@@ -294,6 +339,8 @@ class LabyrinthExplorer:
         # self.update_map_data(self._occupancy_grid)
         cleared_map = self.map_trimmer.trim_map(self._occupancy_map, self._current_x, self._current_y,
                                                 self._map_height, self._map_width)
+        print 'div:', self.match_divider
+        print 'count:', self._node_use_counter
         if self._node_use_counter % self.match_divider == 0:
             self._seen_map[self._seen_map > 1] = 1
             cleared_map = self.match_maps(cleared_map)
@@ -301,11 +348,17 @@ class LabyrinthExplorer:
             # plt.imshow(self._seen_map, cmap='hot', interpolation='nearest')
             # self._seen_map[self._seen_map > 1] = 1
             # plt.show()
+            # f1 = plt.figure(2)
+            # plt.imshow(cleared_map, cmap='hot', interpolation='nearest')
+            # plt.show()
+            cleared_map = self.mask_current_pose_as_seen(cleared_map, self._current_x, self._current_y)
+        next_x, next_y = self.bfs(cleared_map, self._current_x, self._current_y)
+        self._node_use_counter = self._node_use_counter + 1
+        if self._node_use_counter % 3 == 0:
+            cleared_map[next_y, next_x] = 10
             f1 = plt.figure(2)
             plt.imshow(cleared_map, cmap='hot', interpolation='nearest')
             plt.show()
-        next_x, next_y = self.bfs(cleared_map, self._current_x, self._current_y)
-        self._node_use_counter = self._node_use_counter + 1
         next_xm, next_ym = self.transform_to_meter(next_x, next_y)
         return ExploreLabyrinthResponse(next_xm, next_ym)
 

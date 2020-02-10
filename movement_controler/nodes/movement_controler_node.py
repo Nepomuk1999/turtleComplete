@@ -61,6 +61,8 @@ class MovementController:
         self._old_free_direction = None
         self._interrupt_sub = rospy.Subscriber('interrupt_msg', String, self.interrupt_callback)
         self._interrupt_pub = rospy.Publisher('interrupt_msg', String)
+        self._last_x = 0.0
+        self._last_y = 0.0
 
     def interrupt_callback(self, msg):
         if msg.data is STAT_MAPPING or STAT_STOP_BOT:
@@ -142,23 +144,34 @@ class MovementController:
             if self._status is STAT_MAPPING:
                 #Service update
                 print 'get next pose'
-                response = self._explore_service(ExploreLabyrinthRequest(0, 0))
-                if response.x == self._start_x and response.y == self._start_y:
-                    self._interrupt_pub.publish("STAT_SAVE")
-                    print 'FINISH'
-                goal = MoveBaseGoal()
-                goal.target_pose.header.frame_id = "map"
-                goal.target_pose.header.stamp = rospy.Time.now()
-                goal.target_pose.pose.position.x = response.x
-                goal.target_pose.pose.position.y = response.y
-                goal.target_pose.pose.orientation.w = 1
-                self._current_goal_msg = goal
-                print 'pub goal'
-                print response.x
-                print response.y
-                self._move_base_client.send_goal(self._current_goal_msg)
-                self._move_base_client.wait_for_result(rospy.Duration.from_sec(40))
-                self.stop_move_base()
+                try:
+                    response = self._explore_service(ExploreLabyrinthRequest(0, 0))
+                    if response.x == self._start_x and response.y == self._start_y:
+                        self._interrupt_pub.publish("STAT_SAVE")
+                        print 'FINISH'
+                    elif response.x == self._last_x and response.y == self._last_y:
+                        self.rotate_robot(0.0, 45.0, 359.0)
+                        print 'rotate'
+                    else:
+                        self._last_x = response.x
+                        self._last_y = response.y
+                        goal = MoveBaseGoal()
+                        goal.target_pose.header.frame_id = "map"
+                        goal.target_pose.header.stamp = rospy.Time.now()
+                        goal.target_pose.pose.position.x = response.x
+                        goal.target_pose.pose.position.y = response.y
+                        goal.target_pose.pose.orientation.w = 1
+                        self._current_goal_msg = goal
+                        print 'pub goal'
+                        print response.x
+                        print response.y
+
+                        self._move_base_client.send_goal(self._current_goal_msg)
+                        # self._move_base_client.wait_for_result(rospy.Duration.from_sec(40))
+                        self._move_base_client.wait_for_result()
+                        self.stop_move_base()
+                except Exception as e:
+                    print e
             elif self._status is STAT_STOP_BOT:
                 self.stop_move_base()
 
