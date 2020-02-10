@@ -34,7 +34,7 @@ STAT_STOP_BOT = 'stop_bot'
 STAT_MAPPING = 'mapping'
 STAT_SAVE = 'save_token'
 
-ELEMENT_RANGE_WITH = 0.02  # 2 = 40 cm + 5cm = 45cm coords are calculated
+ELEMENT_RANGE_WITH = 0.4  # 2 = 40 cm + 5cm = 45cm coords are calculated
 
 if os.name == 'nt':
     pass
@@ -94,8 +94,8 @@ class CameraController:
                 if mc_blob_x and mc_blob_y is not 0:
                     print 'blob x:', mc_blob_x
                     print 'blob_y:', mc_blob_y
-                    self._pos_token_glob_x.append(mc_blob_x)
-                    self._pos_token_glob_y.append(mc_blob_y)
+                    self._found_x.append(mc_blob_x)
+                    self._found_y.append(mc_blob_y)
 
 
     def blobb_callback(self, blob_data):
@@ -108,6 +108,7 @@ class CameraController:
 
     def interrupt_callback(self, msg):
         if msg.data is STAT_SAVE:
+            mean_token()
             msg = SaveTag()
             msg.x_values = self._pos_token_glob_x
             msg.y_values = self._pos_token_glob_y
@@ -198,7 +199,7 @@ class CameraController:
         #print 'length_y', length_y
         array = np.zeros(shape=(length_y, length_x), dtype=int)
         array2 = np.zeros(shape=(length_y, length_x), dtype=int)
-        for i in range(0,size_x):
+        for i in range(0, size_x):
             x_point = int(round(rand + self._found_x[i]*100-min_x))
             y_point = int(round(rand + self._found_y[i]*100-min_y))
             #print 'x', x_point
@@ -248,10 +249,10 @@ class CameraController:
                 position_y = position_y+positions_y[pos_max[0][j]]
                 position_x = position_x+positions_x[pos_max[0][j]]
             #print 'p_y',position_y
-            pos_token[0,i] = int(round(position_y/len(pos_max[0])))
-            pos_token[1,i] = int(round(position_x/len(pos_max[0])))
+            pos_token[0, i] = int(round(position_y/len(pos_max[0])))
+            pos_token[1, i] = int(round(position_x/len(pos_max[0])))
             #print 'pos_token', pos_token
-            labeled_array[pos_token[0,i],pos_token[1,i]] = 100
+            labeled_array[pos_token[0, i], pos_token[1, i]] = 100
 
             #print 'max', num_max
             #print 'pos_max', pos_max
