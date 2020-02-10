@@ -108,7 +108,7 @@ class CameraController:
 
     def interrupt_callback(self, msg):
         if msg.data is STAT_SAVE:
-            mean_token()
+            self.mean_token()
             msg = SaveTag()
             msg.x_values = self._pos_token_glob_x
             msg.y_values = self._pos_token_glob_y
@@ -138,8 +138,8 @@ class CameraController:
     def get_pose_token_robot_coord(self, blob_x, blob_y):
         middel_height = blob_y  # round((height_1+height_2)/2)
         middel_width = blob_x  # round((width_1+width_2)/2)
-        print 'mw', middel_width
-        print 'mh', middel_height
+        # print 'mw', middel_width
+        # print 'mh', middel_height
         point_1 = np.array([middel_height, middel_width, 1])
         H = np.array([[-194.195662126880, -735.450367159268, 31412.8290557827],
                       [-18.9853166744869, -1388.56217942682, 49050.4332793690],
@@ -165,12 +165,12 @@ class CameraController:
             ps_map = self._tl.transformPoint('map', ps)
             mx = ps_map.point.x
             my = ps_map.point.y
-            print 'mx', mx
-            print 'my', my
+            # print 'mx', mx
+            # print 'my', my
             #Return in m
             return mx, my
         except Exception as e:
-            print '[Info]: ', e
+            #print '[Info]: ', e
             return 0, 0
 
 

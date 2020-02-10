@@ -60,7 +60,7 @@ class MovementController:
         self._free_direction = None
         self._old_free_direction = None
         self._interrupt_sub = rospy.Subscriber('interrupt_msg', String, self.interrupt_callback)
-        self._interrupt_pub = rospy.Publisher('interrupt_msg', String)
+        self._interrupt_pub = rospy.Publisher('save_tags', String, queue_size=10)
         self._last_x = 0.0
         self._last_y = 0.0
 
@@ -146,12 +146,14 @@ class MovementController:
                 print 'get next pose'
                 try:
                     response = self._explore_service(ExploreLabyrinthRequest(0, 0))
-                    if response.x == self._start_x and response.y == self._start_y:
-                        self._interrupt_pub.publish("STAT_SAVE")
-                        print 'FINISH'
+                    if self.chek_for_start_pose_in_range(response.x, response.y):
+                        str = String(STAT_SAVE)
+                        print str.data
+                        self._interrupt_pub.publish(str)
+                        #print 'FINISH'
                     elif response.x == self._last_x and response.y == self._last_y:
-                        self.rotate_robot(0.0, 45.0, 359.0)
                         print 'rotate'
+                        self.rotate_robot(0.0, 45.0, 359.0)
                     else:
                         self._last_x = response.x
                         self._last_y = response.y
@@ -174,6 +176,14 @@ class MovementController:
                     print e
             elif self._status is STAT_STOP_BOT:
                 self.stop_move_base()
+
+    def chek_for_start_pose_in_range(self, cx, cy):
+        b = False
+        range = 0.1
+        if self._start_x-range < cx < self._start_x + range:
+            if self._start_y-range < cy < self._start_y + range:
+                b = True
+        return b
 
 def main():
     if os.name != 'nt':
