@@ -34,7 +34,7 @@ STAT_STOP_BOT = 'stop_bot'
 STAT_MAPPING = 'mapping'
 STAT_SAVE = 'save_token'
 
-ELEMENT_RANGE_WITH = 2  # 2 = 40 cm + 5cm = 45cm coords are calculated
+ELEMENT_RANGE_WITH = 0.02  # 2 = 40 cm + 5cm = 45cm coords are calculated
 
 if os.name == 'nt':
     pass
@@ -92,22 +92,11 @@ class CameraController:
                 mc_blob_x, mc_blob_y = self.get_pose_token_map(rc_blob_x, rc_blob_y, self._last_stamp)
 
                 if mc_blob_x and mc_blob_y is not 0:
-                    if not self.glob_x_y_contains_in_range(mc_blob_x, mc_blob_y):
-                        print 'blob x:', mc_blob_x
-                        print 'blob_y:', mc_blob_y
-                        self._pos_token_glob_x.append(mc_blob_x)
-                        self._pos_token_glob_y.append(mc_blob_y)
-                        msg = rospy.wait_for_message("/map", OccupancyGrid)
-                        grid = np.array(msg.data)
-                        grid = grid.reshape((msg.info.height, msg.info.width))
-                        for i in range(0, len(self._pos_token_glob_x)):
-                            print 'x ', self._pos_token_glob_x[i]
-                            print 'y ', self._pos_token_glob_y[i]
-                            grid[self._pos_token_glob_y[i]][self._pos_token_glob_x[i]] = -1
-                            plt.imshow(grid, cmap='hot', interpolation='nearest')
-                            plt.show()
-                            time.sleep(10)
-                            plt.close()
+                    print 'blob x:', mc_blob_x
+                    print 'blob_y:', mc_blob_y
+                    self._pos_token_glob_x.append(mc_blob_x)
+                    self._pos_token_glob_y.append(mc_blob_y)
+
 
     def blobb_callback(self, blob_data):
         stamp_nsec = blob_data.header.stamp.nsecs
@@ -168,20 +157,20 @@ class CameraController:
         ps = PointStamped()
         ps.header.frame_id = 'base_footprint'
         ps.header.stamp = blob_data_stamp
-        cx, cy = self.transform_to_meter(rc_blob_x, rc_blob_y)
-        ps.point = Point(x=cx, y=cy)
+        #cx, cy = self.transform_to_meter(rc_blob_x, rc_blob_y)
+        #ps.point = Point(x=cx, y=cy)
+        ps.point = Point(x=rc_blob_x, y=rc_blob_y)
         try:
             ps_map = self._tl.transformPoint('map', ps)
             mx = ps_map.point.x
             my = ps_map.point.y
-            map_x, map_y = self.transform_to_pos(mx, my)
-            return map_x, map_y
+            print 'mx', mx
+            print 'my', my
+            #Return in m
+            return mx, my
         except Exception as e:
-            print e
-            if len(self._pos_token_glob_x) is 0:
-                return 0, 0
-            else:
-                return self._pos_token_glob_x[0], self._pos_token_glob_y[0]
+            print '[Info]: ', e
+            return 0, 0
 
 
 
@@ -214,8 +203,8 @@ class CameraController:
             y_point = int(round(rand + self._found_y[i]*100-min_y))
             #print 'x', x_point
             #print 'y', y_point
-            array[(y_point-size_blob):(y_point+size_blob+1),(x_point-size_blob):(x_point+size_blob+1)] = \
-                array[(y_point-size_blob):(y_point+size_blob+1),(x_point-size_blob):(x_point+size_blob+1)]+1
+            array[(y_point-size_blob):(y_point+size_blob+1), (x_point-size_blob):(x_point+size_blob+1)] = \
+                array[(y_point-size_blob):(y_point+size_blob+1), (x_point-size_blob):(x_point+size_blob+1)]+1
             #plt.imshow(array, cmap='hot', interpolation='nearest')
             #plt.show()
 
