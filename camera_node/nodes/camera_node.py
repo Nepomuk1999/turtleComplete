@@ -208,7 +208,7 @@ class CameraController:
 
         for i in range(0, length_x):
             for j in range(0, length_y):
-                if array[j, i] <= 2:
+                if array[j, i] <= 1:
                     array[j, i] = 0
                 else:
                     array2[j, i] = 1
@@ -294,8 +294,8 @@ class CameraController:
         #
         # plt.imshow(array, cmap='hot', interpolation='nearest')
         # plt.show()
-        cv2.imshow('Test',array)
-        cv2.waitKey(1)
+        #cv2.imshow('Test',array)
+        #cv2.waitKey(1)
         #print size_x
         #print 'round_min_x', round(min_x)
         #print 'min_x',min_x
