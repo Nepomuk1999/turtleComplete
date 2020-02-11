@@ -26,7 +26,7 @@ else:
 
 GOAL_MIN_DIST_TO_WALL = 8
 ROBOT_KNOWN_SPACE = 10
-MASK_DISTANCE = 12
+MASK_DISTANCE = 20
 
 
 # Publisher
@@ -348,13 +348,6 @@ class LabyrinthExplorer:
         if self._node_use_counter % self.match_divider == 0:
             self._seen_map[self._seen_map > 1] = 1
             cleared_map = self.match_maps(cleared_map)
-            # f1 = plt.figure(1)
-            # plt.imshow(self._seen_map, cmap='hot', interpolation='nearest')
-            # self._seen_map[self._seen_map > 1] = 1
-            # plt.show()
-            # f1 = plt.figure(2)
-            # plt.imshow(cleared_map, cmap='hot', interpolation='nearest')
-            # plt.show()
             cleared_map = self.mask_current_pose_as_seen(cleared_map, self._current_x, self._current_y)
         next_x, next_y = self.bfs(cleared_map, self._current_x, self._current_y)
         self._node_use_counter = self._node_use_counter + 1

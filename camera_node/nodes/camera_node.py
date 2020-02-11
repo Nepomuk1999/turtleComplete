@@ -34,7 +34,7 @@ STAT_STOP_BOT = 'stop_bot'
 STAT_MAPPING = 'mapping'
 STAT_SAVE = 'save_token'
 
-ELEMENT_RANGE_WITH = 0.4  # 2 = 40 cm + 5cm = 45cm coords are calculated
+ELEMENT_RANGE_WITH = 0.5
 
 if os.name == 'nt':
     pass
@@ -85,17 +85,18 @@ class CameraController:
     def blobb_callback(self, blob_data):
         stamp_nsec = blob_data.header.stamp.nsecs
         if stamp_nsec != 0:
-            #print blob_data.blocks
             self._last_stamp = blob_data.header.stamp
             self._blob_y = blob_data.blocks[0].roi.x_offset
             self._blob_x = blob_data.blocks[0].roi.y_offset
-            rc_blob_x, rc_blob_y = self.get_pose_token_robot_coord(self._blob_x, self._blob_y)
-            mc_blob_x, mc_blob_y = self.get_pose_token_map(rc_blob_x, rc_blob_y, self._last_stamp)
-            if mc_blob_x and mc_blob_y is not 0:
-                print 'mc_blob_x:', mc_blob_x
-                print 'mc_blob_y:', mc_blob_y
-                self._found_x.append(mc_blob_x)
-                self._found_y.append(mc_blob_y)
+            print 'if:', not self.glob_x_y_contains_in_range(self._blob_x, self._blob_y)
+            if not self.glob_x_y_contains_in_range(self._blob_x, self._blob_y):
+                rc_blob_x, rc_blob_y = self.get_pose_token_robot_coord(self._blob_x, self._blob_y)
+                mc_blob_x, mc_blob_y = self.get_pose_token_map(rc_blob_x, rc_blob_y, self._last_stamp)
+                if mc_blob_y != 0 and mc_blob_x != 0:
+                    print 'mc_blob_x:', mc_blob_x
+                    print 'mc_blob_y:', mc_blob_y
+                    self._found_x.append(mc_blob_x)
+                    self._found_y.append(mc_blob_y)
 
     def interrupt_callback(self, msg):
         print msg
@@ -117,17 +118,16 @@ class CameraController:
 
     # checks if array contains element of a given range
     def glob_x_y_contains_in_range(self, current_token_x, current_token_y):
-        b = False
-        x_element_range_lower_bound = current_token_x - ELEMENT_RANGE_WITH
-        x_element_range_upper_bound = current_token_x + ELEMENT_RANGE_WITH
-        y_element_range_lower_bound = current_token_y - ELEMENT_RANGE_WITH
-        y_element_range_upper_bound = current_token_y + ELEMENT_RANGE_WITH
-        if not np.empty(self._pos_token_glob_x):
-            for i in range (0, len(self._pos_token_glob_x)):
-                if not (x_element_range_lower_bound <= self._pos_token_glob_x[i] <= x_element_range_upper_bound):
-                    if not (y_element_range_lower_bound <= self._pos_token_glob_y[i] <= y_element_range_upper_bound):
-                        b = True
-        return b
+        if len(self._found_x) > 0:
+            for i in range(0, len(self._found_x)):
+                x_element_range_lower_bound = self._found_x[i] - ELEMENT_RANGE_WITH
+                x_element_range_upper_bound = self._found_x[i] + ELEMENT_RANGE_WITH
+                y_element_range_lower_bound = self._found_y[i] - ELEMENT_RANGE_WITH
+                y_element_range_upper_bound = self._found_y[i] + ELEMENT_RANGE_WITH
+                if x_element_range_lower_bound <= current_token_x <= x_element_range_upper_bound:
+                    if y_element_range_lower_bound <= current_token_y <= y_element_range_upper_bound:
+                        return True
+        return False
 
     def get_pose_token_robot_coord(self, blob_x, blob_y):
         middel_height = blob_y  # round((height_1+height_2)/2)

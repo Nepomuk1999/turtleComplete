@@ -138,7 +138,7 @@ Visualization Manager:
       Size (Pixels): 3
       Size (m): 0.0300000012
       Style: Flat Squares
-      Topic: /scan
+      Topic: /bauwen//scan
       Unreliable: false
       Use Fixed Frame: true
       Use rainbow: true

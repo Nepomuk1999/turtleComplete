@@ -100,8 +100,8 @@ class MovementController:
         twist.angular.z = angular_speed
         t0 = rospy.Time.now().to_sec()
         current_angle = 0.0
+        self._turtlebot_pub.publish(twist)
         while current_angle < relative_angle:
-            self._turtlebot_pub.publish(twist)
             t1 = rospy.Time.now().to_sec()
             current_angle = angular_speed * (t1 - t0)
         self.stop_turtlebot()
@@ -109,7 +109,14 @@ class MovementController:
 
     def stop_turtlebot(self):
         for i in range(0, 12):
-            self._turtlebot_pub.publish(Twist())
+            twist = Twist()
+            twist.linear.x = 0.0
+            twist.linear.y = 0.0
+            twist.linear.z = 0.0
+            twist.angular.x = 0.0
+            twist.angular.y = 0.0
+            twist.angular.z = 0.0
+            self._turtlebot_pub.publish(twist)
 
     def stop_move_base(self):
         # print self._move_base_client.get_state()
@@ -130,7 +137,7 @@ class MovementController:
                 req.x = self._start_x
                 req.y = self._start_y
                 response = self._explore_service(req)
-                if response.x == self._start_x and response.y == self._start_y and self._status != STAT_FINISH:
+                if self.chek_for_start_pose_in_range(response.x, response.y) and self._status != STAT_FINISH:
                     str = String(STAT_SAVE)
                     print str.data
                     self._interrupt_pub.publish(str)
