@@ -7,7 +7,7 @@ import traceback
 import actionlib
 import matplotlib.pyplot as plt
 import numpy as np
-from playsound import playsound
+#from playsound import playsound
 import rospy
 from actionlib_msgs.msg import GoalStatus
 from std_msgs.msg import Int16, Int16MultiArray, String
@@ -101,14 +101,15 @@ class MovementController:
         t0 = rospy.Time.now().to_sec()
         current_angle = 0.0
         while current_angle < relative_angle:
-            #TODO check if twist has to be sendt
-            #self._turtlebot_pub.publish(twist)
+            self._turtlebot_pub.publish(twist)
             t1 = rospy.Time.now().to_sec()
             current_angle = angular_speed * (t1 - t0)
         self.stop_turtlebot()
+        return True
 
     def stop_turtlebot(self):
-        self._turtlebot_pub.publish(Twist())
+        for i in range(0, 12):
+            self._turtlebot_pub.publish(Twist())
 
     def stop_move_base(self):
         # print self._move_base_client.get_state()
@@ -122,9 +123,13 @@ class MovementController:
             p.position.x = self._start_x
             p.position.y = self._start_y
             self._start_pose_pub.publish(p)
+            counter = counter + 1
         while not rospy.is_shutdown():
             try:
-                response = self._explore_service(ExploreLabyrinthRequest(0, 0))
+                req = ExploreLabyrinthRequest()
+                req.x = self._start_x
+                req.y = self._start_y
+                response = self._explore_service(req)
                 if response.x == self._start_x and response.y == self._start_y and self._status != STAT_FINISH:
                     str = String(STAT_SAVE)
                     print str.data
@@ -132,13 +137,13 @@ class MovementController:
                     self._status = STAT_FINISH
                 elif self._status == STAT_ROTATE:
                     print 'start rotation'
-                    self.rotate_robot(0.0, 90.0, 360.0)
+                    b = self.rotate_robot(0.0, 25.0, 360.0)
                     print 'stop rotation'
                     self.stop_turtlebot()
                     self._status = STAT_MAPPING
                 elif self._status == STAT_END:
                     print STAT_END
-                    playsound('R2D2.mp3')
+                    #playsound('R2D2.mp3')
                 else:
                     self._last_x = response.x
                     self._last_y = response.y

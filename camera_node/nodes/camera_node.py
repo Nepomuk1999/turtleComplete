@@ -82,22 +82,6 @@ class CameraController:
         self._tl = tf.TransformListener()
         print 'init finished'
 
-    def control_loop(self):
-        while not rospy.is_shutdown():
-            # TODO: checkn if 0 check is good
-            if self._blob_x != 0:
-                rc_blob_x, rc_blob_y = self.get_pose_token_robot_coord(self._blob_x, self._blob_y)
-                print 'rc_blob_x', rc_blob_x
-                print 'rc_blob_y', rc_blob_y
-                mc_blob_x, mc_blob_y = self.get_pose_token_map(rc_blob_x, rc_blob_y, self._last_stamp)
-
-                if mc_blob_x and mc_blob_y is not 0:
-                    print 'blob x:', mc_blob_x
-                    print 'blob_y:', mc_blob_y
-                    self._found_x.append(mc_blob_x)
-                    self._found_y.append(mc_blob_y)
-
-
     def blobb_callback(self, blob_data):
         stamp_nsec = blob_data.header.stamp.nsecs
         if stamp_nsec != 0:
@@ -105,6 +89,13 @@ class CameraController:
             self._last_stamp = blob_data.header.stamp
             self._blob_y = blob_data.blocks[0].roi.x_offset
             self._blob_x = blob_data.blocks[0].roi.y_offset
+            rc_blob_x, rc_blob_y = self.get_pose_token_robot_coord(self._blob_x, self._blob_y)
+            mc_blob_x, mc_blob_y = self.get_pose_token_map(rc_blob_x, rc_blob_y, self._last_stamp)
+            if mc_blob_x and mc_blob_y is not 0:
+                print 'mc_blob_x:', mc_blob_x
+                print 'mc_blob_y:', mc_blob_y
+                self._found_x.append(mc_blob_x)
+                self._found_y.append(mc_blob_y)
 
     def interrupt_callback(self, msg):
         print msg
@@ -472,7 +463,7 @@ def main():
     rospy.init_node('camera_node')
     try:
         cc = CameraController()
-        cc.control_loop()
+        rospy.spin()
     except Exception as e:
         print e
         traceback.print_exc()

@@ -56,18 +56,12 @@ class LabyrinthExplorer:
         self._current_pose = None
         self._current_x = None
         self._current_y = None
+        rospy.wait_for_message('robot_pose', Pose)
+        self._as = rospy.Service('explorer_goal_pos', ExploreLabyrinth, self.movementcontroller)
         self._start_x_meter = None
         self._start_y_meter = None
         self._start_x_coord = None
         self._start_y_coord = None
-        rospy.wait_for_message('robot_pose', Pose)
-        self._as = rospy.Service('explorer_goal_pos', ExploreLabyrinth, self.movementcontroller)
-        self._start_pose_sub = rospy.Subscriber('start_pose', Pose, self.start_pose_callback)
-
-    def start_pose_callback(self, data):
-        self._start_x_meter = data.position.x
-        self._start_y_meter = data.position.y
-        self._start_x_coord, self._start_y_coord = self.transform_to_pos(self._start_x_meter, self._start_y_meter)
 
     def pose_callback(self, msg):
         self._callback_counter = self._callback_counter + 1
@@ -210,8 +204,6 @@ class LabyrinthExplorer:
                     if not self.cointains_pos(i, path):
                         path.append(i)
         first_run = False
-
-
         if self.match_divider != 1:
             print 'set to cp'
             self.match_divider = 1
@@ -341,6 +333,10 @@ class LabyrinthExplorer:
 
     def movementcontroller(self, goal):
         print 'calc next pos'
+        print goal
+        self._start_x_meter = goal.x
+        self._start_y_meter = goal.y
+        self._start_x_coord, self._start_y_coord = self.transform_to_pos(self._start_x_meter, self._start_y_meter)
         # get map to avoid update while processing
         self._occupancy_grid = rospy.wait_for_message("map", OccupancyGrid)
         self.update_map_data(self._occupancy_grid)
