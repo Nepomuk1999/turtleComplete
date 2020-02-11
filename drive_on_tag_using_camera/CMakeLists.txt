@@ -2,7 +2,7 @@
 # Set minimum required version of cmake, project name and compile options
 ################################################################################
 cmake_minimum_required(VERSION 2.8.3)
-project(avoid_obstacles)
+project(drive_on_tag_using_camera)
 
 ################################################################################
 # Find catkin packages and libraries for catkin and system dependencies
@@ -40,7 +40,7 @@ catkin_package(
 # Install
 ################################################################################
 catkin_install_python(PROGRAMS
-  nodes/avoid_obstacles.py
+  nodes/drive_on_tag_using_camera.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 

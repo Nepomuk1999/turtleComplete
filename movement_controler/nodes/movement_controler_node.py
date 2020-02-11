@@ -50,7 +50,7 @@ class MovementController:
         self._explore_service = rospy.ServiceProxy('explorer_goal_pos', ExploreLabyrinth, headers=None)
         rospy.wait_for_service('explorer_goal_pos')
         print 'labirynth explore service connected'
-        self._status = STAT_MAPPING
+        self._status = STAT_ROTATE
         self._current_goal_msg = None
         self._turtlebot_pub = rospy.Publisher('cmd_vel', Twist, queue_size=10)
         print 'wait for robot pose'

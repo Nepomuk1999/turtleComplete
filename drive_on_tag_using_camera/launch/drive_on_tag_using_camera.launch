@@ -3,6 +3,6 @@
   <param name="model" value="$(arg model)"/>
 
   <!-- turtlebot3_teleop_key already has its own built in velocity smoother -->
-  <node pkg="avoid_obstacles" type="avoid_obstacles.py" name="avoid_obstacles"  output="screen">
+  <node pkg="drive_on_tag_using_camera" type="drive_on_tag_using_camera.py" name="drive_on_tag_using_camera"  output="screen">
   </node>
 </launch>
