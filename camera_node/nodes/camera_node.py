@@ -107,7 +107,10 @@ class CameraController:
             self._blob_x = blob_data.blocks[0].roi.y_offset
 
     def interrupt_callback(self, msg):
-        if msg.data is STAT_SAVE:
+        print msg
+        print msg.data
+        if msg.data == STAT_SAVE:
+            print 'in if'
             self.mean_token()
             msg = SaveTag()
             msg.x_values = self._pos_token_glob_x
