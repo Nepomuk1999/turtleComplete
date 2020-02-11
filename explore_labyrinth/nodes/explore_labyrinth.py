@@ -56,9 +56,18 @@ class LabyrinthExplorer:
         self._current_pose = None
         self._current_x = None
         self._current_y = None
+        self._start_x_meter = None
+        self._start_y_meter = None
+        self._start_x_coord = None
+        self._start_y_coord = None
         rospy.wait_for_message('robot_pose', Pose)
-        self._start_x, self._start_y = self.transform_to_pos(self._current_pose.position.x, self._current_pose.position.y)
         self._as = rospy.Service('explorer_goal_pos', ExploreLabyrinth, self.movementcontroller)
+        self._start_pose_sub = rospy.Subscriber('start_pose', Pose, self.start_pose_callback)
+
+    def start_pose_callback(self, data):
+        self._start_x_meter = data.position.x
+        self._start_y_meter = data.position.y
+        self._start_x_coord, self._start_y_coord = self.transform_to_pos(self._start_x_meter, self._start_y_meter)
 
     def pose_callback(self, msg):
         self._callback_counter = self._callback_counter + 1
@@ -144,7 +153,6 @@ class LabyrinthExplorer:
         self._seen_map[y_lower_b:y_upper_b, x_lower_b:x_upper_b] = \
             np.add(self._seen_map[y_lower_b:y_upper_b, x_lower_b:x_upper_b], rotated)
 
-
     def get_rotation(self, orientation_q):
         orientation_list = [orientation_q.x, orientation_q.y, orientation_q.z, orientation_q.w]
         (roll, pitch, yaw) = euler_from_quaternion(orientation_list)
@@ -185,9 +193,9 @@ class LabyrinthExplorer:
                     current_map, set_to_zero = self.mark_small_unseen_as_seen(current_map, current_x, current_y)
                 if not set_to_zero:
                     cx, cy = self.next_known_cell(current_x, current_y, current_map)
-                    if self.match_divider == 1 and (cy == self._start_y and cx == self._start_x):
-                        return self._start_x, self._start_y,
-                    if cy == self._start_y and cx == self._start_x:
+                    if self.match_divider == 1 and (cy == self._start_y_coord and cx == self._start_x_coord):
+                        return self._start_x_coord, self._start_y_coord,
+                    if cy == self._start_y_coord and cx == self._start_x_coord:
                         print 'set to robot pose'
                         self.match_divider = 1
                         cx = self._current_x
@@ -203,14 +211,15 @@ class LabyrinthExplorer:
                         path.append(i)
         first_run = False
 
-        print "return start pose"
+
         if self.match_divider != 1:
             print 'set to cp'
             self.match_divider = 1
             cx = self._current_x
             cy = self._current_y
             return cx, cy
-        return self._start_x, self._start_y
+        print "return start pose"
+        return self._start_x_coord, self._start_y_coord
 
     def cointains_pos(self, array, array_array):
         for i in array_array:
@@ -244,7 +253,7 @@ class LabyrinthExplorer:
                         path.append(i)
             first_run = False
         print 'no next known cell found'
-        return self._start_x, self._start_y
+        return self._start_x_coord, self._start_y_coord
 
     def check_goal_pos(self, pos_x, pos_y, current_map):
         lower_x = pos_x - (np.int(GOAL_MIN_DIST_TO_WALL / 2))
@@ -253,7 +262,6 @@ class LabyrinthExplorer:
         upper_x = pos_x + (np.int(GOAL_MIN_DIST_TO_WALL / 2))
         if upper_x > self._map_width - 1:
             upper_x = self._map_width - 1
-
         lower_y = pos_y - (np.int(GOAL_MIN_DIST_TO_WALL / 2))
         if lower_y < 0:
             lower_y = 0
