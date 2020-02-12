@@ -97,8 +97,8 @@ class MapTagHandler:
     def write_to_file(self, x_data, y_data):
         print 'write file'
         i = 0
-        filenamex = "/x.txt"
-        filenamey = "/y.txt"
+        filenamex = "x.txt"
+        filenamey = "y.txt"
         xfile = open(filenamex, 'w+')
         yfile = open(filenamey, 'w+')
         while i < len(x_data):

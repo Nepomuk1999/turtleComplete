@@ -7,7 +7,7 @@ import traceback
 import actionlib
 import matplotlib.pyplot as plt
 import numpy as np
-from playsound import playsound
+#from playsound import playsound
 import rospy
 from actionlib_msgs.msg import GoalStatus
 from std_msgs.msg import Int16, Int16MultiArray, String
@@ -151,7 +151,7 @@ class MovementController:
                     self._status = STAT_MAPPING
                 elif self._status == STAT_END:
                     print STAT_END
-                    playsound('/home/christoph/catkin_ws/src/movement_controler/nodes/R2D2.mp3')
+                    #playsound('/home/christoph/catkin_ws/src/movement_controler/nodes/R2D2.mp3')
                 else:
                     self._last_x = response.x
                     self._last_y = response.y

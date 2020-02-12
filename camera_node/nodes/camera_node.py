@@ -197,7 +197,8 @@ class CameraController:
         for i in range(0, size_x):
             x_point = int(round(rand + self._found_x[i]*100-min_x))
             y_point = int(round(rand + self._found_y[i]*100-min_y))
-
+            #print 'x', x_point
+            #print 'y', y_point
             array[(y_point-size_blob):(y_point+size_blob+1), (x_point-size_blob):(x_point+size_blob+1)] = \
                 array[(y_point-size_blob):(y_point+size_blob+1), (x_point-size_blob):(x_point+size_blob+1)]+1
             #plt.imshow(array, cmap='hot', interpolation='nearest')
