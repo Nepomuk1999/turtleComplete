@@ -104,11 +104,11 @@ class CameraController:
             self.mean_token()
             print 'prepare send tag to save'
             msg = SaveTag()
-            msg.x_values = self._pos_token_glob_x
-            msg.y_values = self._pos_token_glob_y
+            for i in range(0, len(self._pos_token_glob_x)):
+                msg.x_values.append(self._pos_token_glob_x[i])
+                msg.y_values.append(self._pos_token_glob_y[i])
             self._save_tags_pub.publish(msg)
             print 'lists to save sendt'
-
 
     def pose_pub_callback(self, msg):
         self._current_pose_pub = msg
