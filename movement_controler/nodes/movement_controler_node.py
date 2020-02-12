@@ -158,8 +158,8 @@ class MovementController:
                     goal = MoveBaseGoal()
                     goal.target_pose.header.frame_id = "map"
                     goal.target_pose.header.stamp = rospy.Time.now()
-                    goal.target_pose.pose.position.x = response.x
-                    goal.target_pose.pose.position.y = response.y
+                    goal.target_pose.pose.position.x = 0.13572#response.x
+                    goal.target_pose.pose.position.y = 0.57662#response.y
                     goal.target_pose.pose.orientation.w = 1
                     self._current_goal_msg = goal
                     self._move_base_client.send_goal(self._current_goal_msg)

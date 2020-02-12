@@ -217,9 +217,9 @@ class CameraController:
         s = generate_binary_structure(2, 2)
         labeled_array, num_features = label(array2, structure=s)
         #print labeled_array
-        # f = plt.figure(1)
-        # plt.imshow(labeled_array, cmap='hot', interpolation='nearest')
-        # plt.show()
+        f = plt.figure(1)
+        plt.imshow(labeled_array, cmap='hot', interpolation='nearest')
+        plt.show()
         pos_token = np.zeros(shape=(2, num_features), dtype=int)
         pos_token_glob = np.zeros(shape=(2, num_features))
         for i in range(0,num_features):
