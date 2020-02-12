@@ -1,5 +1,5 @@
-int64[] tags_x
-int64[] tags_y
+float64 current_pose_x
+float64 current_pose_y
 ---
-float64 x
-float64 y
+float64 tags_x
+float64 tags_y
