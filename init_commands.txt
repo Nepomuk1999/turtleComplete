@@ -1,0 +1,13 @@
+@pi
+ssh pi@192.168.0.68
+roslaunch turtlebot3_bringup turtlebot3_robot.launch --screen
+rosrun pixy_node pixy_node
+
+@pc
+roscore
+roslaunch turtlebot3_slam turtlebot3_slam.launch
+roslaunch turtlebot3_navigation move_base.launch
+roslaunch movement_controler movement_controler_node.launch --screen
+roslaunch explore_labyrinth explore_labyrinth.launch --screen
+roslaunch camera_node camera_node.launch --screen
+sudo roslaunch map_tag_handler map_tag_handler.launch --screen

@@ -73,7 +73,7 @@ class CameraController:
         self._found_y = []
         self._interrupt_pub = rospy.Publisher('interrupt_msg', String, queue_size=10)
         self._interrupt_pub = rospy.Subscriber('save_tags', String, self.interrupt_callback)
-        #self._save_tags_pub = rospy.Publisher('/save_tags', TagService)
+        self._save_tags_pub = rospy.Publisher('save_tags_to_file', SaveTag, queue_size=10)
         msg = rospy.wait_for_message("map", OccupancyGrid)
         meta_data = msg.info
         self._offset_x = meta_data.origin.position.x
@@ -88,15 +88,13 @@ class CameraController:
             self._last_stamp = blob_data.header.stamp
             self._blob_y = blob_data.blocks[0].roi.x_offset
             self._blob_x = blob_data.blocks[0].roi.y_offset
-            print 'if:', not self.glob_x_y_contains_in_range(self._blob_x, self._blob_y)
-            if not self.glob_x_y_contains_in_range(self._blob_x, self._blob_y):
-                rc_blob_x, rc_blob_y = self.get_pose_token_robot_coord(self._blob_x, self._blob_y)
-                mc_blob_x, mc_blob_y = self.get_pose_token_map(rc_blob_x, rc_blob_y, self._last_stamp)
-                if mc_blob_y != 0 and mc_blob_x != 0:
-                    print 'mc_blob_x:', mc_blob_x
-                    print 'mc_blob_y:', mc_blob_y
-                    self._found_x.append(mc_blob_x)
-                    self._found_y.append(mc_blob_y)
+            rc_blob_x, rc_blob_y = self.get_pose_token_robot_coord(self._blob_x, self._blob_y)
+            mc_blob_x, mc_blob_y = self.get_pose_token_map(rc_blob_x, rc_blob_y, self._last_stamp)
+            if mc_blob_y != 0 and mc_blob_x != 0:
+                print 'mc_blob_x:', mc_blob_x
+                print 'mc_blob_y:', mc_blob_y
+                self._found_x.append(mc_blob_x)
+                self._found_y.append(mc_blob_y)
 
     def interrupt_callback(self, msg):
         print msg
@@ -104,10 +102,13 @@ class CameraController:
         if msg.data == STAT_SAVE:
             print 'in if'
             self.mean_token()
+            print 'prepare send tag to save'
             msg = SaveTag()
             msg.x_values = self._pos_token_glob_x
             msg.y_values = self._pos_token_glob_y
             self._save_tags_pub.publish(msg)
+            print 'lists to save sendt'
+
 
     def pose_pub_callback(self, msg):
         self._current_pose_pub = msg
@@ -179,7 +180,7 @@ class CameraController:
 
     def mean_token(self):
         rand = 10
-        size_blob = 5
+        size_blob = 11
         size_x = len(self._found_x)
 
         #in cm
@@ -213,14 +214,13 @@ class CameraController:
                 else:
                     array2[j, i] = 1
                     #data[j, i] = 255
-
-        #print array2
         s = generate_binary_structure(2, 2)
         labeled_array, num_features = label(array2, structure=s)
         #print labeled_array
-        plt.imshow(labeled_array, cmap='hot', interpolation='nearest')
-        plt.show()
-        pos_token = np.zeros(shape=(2, num_features))
+        # f = plt.figure(1)
+        # plt.imshow(labeled_array, cmap='hot', interpolation='nearest')
+        # plt.show()
+        pos_token = np.zeros(shape=(2, num_features), dtype=int)
         pos_token_glob = np.zeros(shape=(2, num_features))
         for i in range(0,num_features):
             positions = np.where(labeled_array == i+1)
@@ -228,117 +228,22 @@ class CameraController:
             positions_y = positions[0]
             num = array[positions[0], positions[1]]
             num_max = max(num)
-            pos_max = np.where(num == num_max)
-            #print 'num_max', num_max
-            #print 'pos_max', pos_max
-            #print 'num ', num
-            #print 'apfel', pos_max
+            pos_max = np.where(num >= 0.9 * num_max)
             position_x = 0.0
             position_y = 0.0
-            ###PROBLEM
-            #print 'len ', len(pos_max[0])
             for j in range(0, len(pos_max[0])):
-                #print 'p_max',pos_max[0][j]
-                #print 'p_P_y', positions_y
                 position_y = position_y+positions_y[pos_max[0][j]]
                 position_x = position_x+positions_x[pos_max[0][j]]
-            #print 'p_y',position_y
             pos_token[0, i] = int(round(position_y/len(pos_max[0])))
             pos_token[1, i] = int(round(position_x/len(pos_max[0])))
-            #print 'pos_token', pos_token
             labeled_array[pos_token[0, i], pos_token[1, i]] = 100
-
-            #print 'max', num_max
-            #print 'pos_max', pos_max
-            #print num
-
         self.pos_token_glob_y = (pos_token[0,:]-rand+min_y)/100
         self.pos_token_glob_x = (pos_token[1,:]-rand+min_x)/100
-        #print pos_token
         print 'pos_token_glob_x', self.pos_token_glob_x
         print 'pos_token_glob_y', self.pos_token_glob_y
-        plt.imshow(labeled_array, cmap='hot', interpolation='nearest')
-        plt.show()
-
-
-        #img = Im.fromarray(data, 'RGB')
-        # info = np.iinfo(data.dtype)  # Get the information of the incoming image type
-        # data = data.astype(np.float64) / info.max  # normalize the data to 0 - 1
-        # data = 255 * data  # Now scale by 255
-        # img = data.astype(np.uint8)
-        # ret, bw_img = cv2.threshold(img, 127, 255, cv2.THRESH_BINARY)
-        # img, contours, hierarchy = cv2.findContours(bw_img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-        #
-        # #output = median.copy()
-        #
-        # #Version 1
-        # # print contours
-        # for c in contours:
-        #     # calculate moments for each contour
-        #     M = cv2.moments(c)
-        #
-        #     # calculate x,y coordinate of center
-        #     if M["m00"] != 0:
-        #         cX = int(M["m10"] / M["m00"])
-        #         cY = int(M["m01"] / M["m00"])
-        #         found = True
-        #     else:
-        #         cX, cY = 0, 0
-        #
-        #     cv2.circle(img, (cX, cY), 5, (100, 100, 100), -1)
-        #     # cv2.putText(img, "centroid", (cX - 25, cY - 25), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
-        #
-        # cv2.imshow("Image", img)
-        # cv2.waitKey(1)
-        #
-        #
-        # plt.imshow(array, cmap='hot', interpolation='nearest')
-        # plt.show()
-        #cv2.imshow('Test',array)
-        #cv2.waitKey(1)
-        #print size_x
-        #print 'round_min_x', round(min_x)
-        #print 'min_x',min_x
-        #print 'max_x',max_x
-        #print 'min_y', min_y
-        #print 'max_y', max_y
-        '''
-        array = np.zeros(shape=(5, 5))
-        plt.imshow(array, cmap='hot', interpolation='nearest')
-        plt.show()
-        for k in 5:
-            for i in range(0, 3):
-                for j in range(0, 3):
-                    array[i, j] = array[i, j] + 1
-
-        plt.imshow(array, cmap='hot', interpolation='nearest')
-        plt.show()
-        '''
-        # Plot heatmap of trimmed map
-        # current_map[robot_pos_y, robot_pos_x] = 4
-        # plt.imshow(current_map, cmap='hot', interpolation='nearest')
-        # plt.show()
-
-    '''
-    def image_callback(self, msg):
-        bridge = CvBridge()
-        try:
-            cv2_img = bridge.imgmsg_to_cv2(msg, "bgr8")
-            img_hsv = cv2.cvtColor(cv2_img, cv2.COLOR_BGR2HSV)
-            #16:00
-            #mask = cv2.inRange(img_hsv, (50, 25, 25), (110, 220, 220))
-            #mask = cv2.inRange(img_hsv, (65, 60, 60), (95, 180, 180))
-            # 11':24
-            #mask = cv2.inRange(img_hsv, (36, 35, 35), (110, 255, 255))
-            mask = cv2.inRange(img_hsv, (50, 30, 100), (110, 200, 150))
-            #croped = cv2.bitwise_and(cv2_img, cv2_img, mask=mask)
-            kernel = np.ones((3, 3), np.float32) / 25
-            self._binary_image = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
-            #cv2.imshow('bw', self._binary_image)
-            #cv2.waitKey(1)
-        except CvBridgeError, e:
-            print(e)
-    '''
+        # fi = plt.figure(2)
+        # plti.imshow(labeled_array, cmap='hot', interpolation='nearest')
+        # fi.show()
 
     def get_rotation(self, msg):
         orientation_q = msg.orientation

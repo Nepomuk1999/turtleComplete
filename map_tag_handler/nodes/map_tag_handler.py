@@ -38,20 +38,20 @@ class MapTagHandler:
 
     def __init__(self):
         self._provide_tag_service = rospy.Service('get_next_Tag', TagService, self.provide_next_tag)
-        self._save_tags_service = rospy.Subscriber('save_tags', SaveTag, self.save_tags)
+        self._save_tags_service = rospy.Subscriber('save_tags_to_file', SaveTag, self.save_tags_callback)
         occupancy_grid = rospy.wait_for_message("map", OccupancyGrid)
         meta_data = occupancy_grid.info
         self._offset_x = meta_data.origin.position.x
         self._offset_y = meta_data.origin.position.y
         self._resolution = meta_data.resolution
 
-        top_ser = rospy.get_param('topic_searching')
-        top_rea = rospy.get_param('topic_reached')
-        self._search_pub = rospy.Publisher(top_ser, Point, queue_size=10)
-        self._search_sub = rospy.Subscriber(top_ser, Point, määäääääää)
-
-        self._reached_pub = rospy.Publisher(top_rea, Point, queue_size=10)
-        self._reached_sub = rospy.Subscriber(top_rea, Point, määäääää)
+        # top_ser = rospy.get_param('topic_searching')
+        # top_rea = rospy.get_param('topic_reached')
+        # self._search_pub = rospy.Publisher(top_ser, Point, queue_size=10)
+        # self._search_sub = rospy.Subscriber(top_ser, Point, self.top_ser_callback())
+        #
+        # self._reached_pub = rospy.Publisher(top_rea, Point, queue_size=10)
+        # self._reached_sub = rospy.Subscriber(top_rea, Point, self.top_rea_callback)
 
         # self._active_tags = None
         # self._my_fount_tags_x = None
@@ -63,17 +63,25 @@ class MapTagHandler:
         # self.read_tags_from_file()
         # self._distance_values = None
         # self.calculate_distances()
+        print 'end init'
+
+    def top_ser_callback(self, data):
+        pass
+
+    def top_rea_callback(self, data):
+        pass
 
     def provide_next_tag(self, msg):
         i = 0
-        while i < len(self._active_tags):
-            if self._active_tags[i] is True:
-                self._active_tags[i] = False
-                return TagServiceResponse(self.transform_to_meter(self._my_fount_tags_x[i], self._my_fount_tags_y[i]))
+        # while i < len(self._active_tags):
+        #     if self._active_tags[i] is True:
+        #         self._active_tags[i] = False
+        #         return TagServiceResponse(self.transform_to_meter(self._my_fount_tags_x[i], self._my_fount_tags_y[i]))
 
-    def save_tags(self, data):
-        self._my_fount_tags_x = data.data.x
-        self._my_fount_tags_y = data.data.y
+    def save_tags_callback(self, data):
+        print 'got calback data:', data
+        self._my_fount_tags_x = data.x_values
+        self._my_fount_tags_y = data.y_values
         self.write_to_file(self._my_fount_tags_x, self._my_fount_tags_y)
 
     def transform_to_pos(self, m_x, m_y):
@@ -87,11 +95,12 @@ class MapTagHandler:
         return m_x, m_y
 
     def write_to_file(self, x_data, y_data):
+        print 'write file'
         i = 0
-        filenamex = "x.txt"
-        filenamey = "y.txt"
-        xfile = open(filenamex, 'w')
-        yfile = open(filenamey, 'w')
+        filenamex = "/x.txt"
+        filenamey = "/y.txt"
+        xfile = open(filenamex, 'w+')
+        yfile = open(filenamey, 'w+')
         while i < len(x_data):
             xfile.write(x_data[i] + '\n')
             yfile.write(y_data[i] + '\n')

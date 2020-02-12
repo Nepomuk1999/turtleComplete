@@ -141,6 +141,7 @@ class MovementController:
                     str = String(STAT_SAVE)
                     print str.data
                     self._interrupt_pub.publish(str)
+                    print 'stat = finish'
                     self._status = STAT_FINISH
                 elif self._status == STAT_ROTATE:
                     print 'start rotation'
@@ -167,7 +168,7 @@ class MovementController:
                     self.stop_move_base()
                     if self._status == STAT_FINISH:
                         self._status = STAT_END
-                    else:
+                    elif self._status == STAT_MAPPING:
                         self._status = STAT_ROTATE
             except Exception as e:
                 print e
