@@ -1,2 +1,2 @@
-int64[] x_values
-int64[] y_values
+float64[] x_values
+float64[] y_values
