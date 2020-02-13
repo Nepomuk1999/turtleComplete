@@ -4,6 +4,8 @@ roslaunch turtlebot3_bringup turtlebot3_robot.launch --screen
 rosrun pixy_node pixy_node
 
 @pc
+für Aufgabe 1:
+
 roscore
 roslaunch turtlebot3_slam turtlebot3_slam.launch
 roslaunch turtlebot3_navigation move_base.launch
@@ -11,3 +13,30 @@ roslaunch movement_controler movement_controler_node.launch --screen
 roslaunch explore_labyrinth explore_labyrinth.launch --screen
 roslaunch camera_node camera_node.launch --screen
 sudo roslaunch map_tag_handler map_tag_handler.launch --screen
+
+--------------------------------------------------------------------------------------------------
+für Aufgabe 2:
+roscore
+roslaunch turtlebot3_slam turtlebot3_slam.launch
+roslaunch turtlebot3_navigation  turtlebot3_navigation.launch
+roslaunch movement_controler2 movement_controler_node2.launch --screen
+sudo roslaunch map_tag_handler map_tag_handler.launch --screen
+
+Start global localization
+rosservice call /global_localization
+--------------------------------------------------------------------------------------------------
+UM Map zu speichern:
+rosrun map_server map_saver -f nameOfFile
+
+--------------------------------------------------------------------------------------------------
+Zeit
+
+timedatectl
+sudo timedatectl set-ntp true
+
+--------------------------------------------------------------------------------------------------
+PixyMon:
+cd ~/pixy/build/pixymon/bin
+./PixyMon
+
+--------------------------------------------------------------------------------------------------

@@ -125,9 +125,6 @@ class MapTagHandler:
                 return self._my_found_tags_x[minDistIndex], self._my_found_tags_y[minDistIndex]
         return self._start_x_coord, self._start_y_coord
 
-    def match_tags_with_range(self, x, y):
-        pass
-
     def save_tags_callback(self, data):
         print 'got calback data:', data
         for i in range(0, len(data.x_values)):
