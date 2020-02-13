@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import os
+from os.path import expanduser
 import sys
 import time
 import traceback
@@ -177,9 +178,9 @@ class MapTagHandler:
     def write_to_file(self, x_data, y_data):
         print 'write file'
         i = 0
-        path = os.getcwd()
-        filenamex = path, "/x.txt"
-        filenamey = path, "/y.txt"
+        filenamex = expanduser("~/catkin_ws/src/map_tag_handler/nodes/x.txt")
+        filenamey = expanduser("~/catkin_ws/src/map_tag_handler/nodes/y.txt")
+        print filenamex
         xfile = open(filenamex, 'w+')
         yfile = open(filenamey, 'w+')
         print len(x_data)
