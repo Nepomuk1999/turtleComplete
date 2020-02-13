@@ -29,6 +29,7 @@ PI = 3.1415926535897
 
 STAT_SEARCH = 'search_tokens'
 STAT_DRIVE = 'drive_to_tokens'
+STAT_READY = 'ready'
 
 TAG_STAT_OPEN = 1
 TAG_STAT_SER = 2
@@ -56,12 +57,12 @@ class MapTagHandler:
         self._offset_y = meta_data.origin.position.y
         self._resolution = meta_data.resolution
 
-        #top_ser = rospy.get_param('topic_searching')
-        #top_rea = rospy.get_param('topic_reached')
-        #self._search_pub = rospy.Publisher(top_ser, Point, queue_size=10)
-        #self._search_sub = rospy.Subscriber(top_ser, Point, self.top_ser_callback())
-        #self._reached_pub = rospy.Publisher(top_rea, Point, queue_size=10)
-        #self._reached_sub = rospy.Subscriber(top_rea, Point, self.top_rea_callback)
+        top_ser = rospy.get_param('topic_searching', default='/search')
+        top_rea = rospy.get_param('topic_reached', default='/found')
+        self._search_pub = rospy.Publisher(top_ser, Point, queue_size=10)
+        self._search_sub = rospy.Subscriber(top_ser, Point, self.top_ser_callback)
+        self._reached_pub = rospy.Publisher(top_rea, Point, queue_size=10)
+        self._reached_sub = rospy.Subscriber(top_rea, Point, self.top_rea_callback)
 
         self._start_x_coord = 0.0
         self._start_y_coord = 0.0
@@ -73,10 +74,11 @@ class MapTagHandler:
         self._last_send_tag_index = -1
 
         self._distance_values = None
-        self._stat = STAT_SEARCH
+        self._stat = STAT_DRIVE
         if self._stat == STAT_DRIVE:
             self.read_tags_from_file()
             self.calculate_distances()
+        self._stat = STAT_READY
         print 'end init'
 
     def top_ser_callback(self, data):
@@ -104,6 +106,8 @@ class MapTagHandler:
         self._search_pub.publish(p)
 
     def provide_next_tag(self, msg):
+        while self._stat != STAT_READY:
+            time.sleep(10)
         if self.call_counter == 0:
             print 'first call'
             print 'start_x:', msg.current_pose_x
@@ -111,22 +115,25 @@ class MapTagHandler:
             self._start_x_coord, self._start_y_coord = self.transform_to_pos(msg.current_pose_x, msg.current_pose_y)
             goal_x, goal_y = self.find_first_tag(self._start_x_coord, self._start_y_coord)
             goal_x, goal_y = self.transform_to_meter(goal_x, goal_y)
+            i = self.find_tag_index(goal_x, goal_y)
+            goal_x = self._my_found_tags_x[i]
+            goal_y = self._my_found_tags_y[i]
         else:
             self.top_rea_pub(msg.current_pose_x, msg.current_pose_y)
             i = self.find_tag_index(msg.current_pose_x, msg.current_pose_y)
             self.set_tag_stat(i, TAG_STAT_FOUND)
-            goal_x, goal_y = self.get_next_tag()
+            goal_x, goal_y, ind = self.get_next_tag()
+        self.call_counter = self.call_counter + 1
         print'send next_goal'
         print 'goal_x', goal_x
         print 'goal_y', goal_y
         self.top_ser_pub(goal_x, goal_y)
         i = self.find_tag_index(goal_x, goal_y)
         self.set_tag_stat(i, TAG_STAT_SER)
-
         resp = TagServiceResponse()
         resp.tags_x = goal_x
         resp.tags_y = goal_y
-        return TagServiceResponse()
+        return resp
 
     def set_tag_stat(self, tag_index, stat):
         self._tags_stats[tag_index] = stat
@@ -143,7 +150,7 @@ class MapTagHandler:
         return -1
 
     def get_next_tag(self):
-        for i in range(TAG_STAT_OPEN, TAG_STAT_FOUND):
+        for i in range(1, 3):
             minDist = 100000.0
             minDistIndex = -1
             for j in range(0, len(self._tags_stats)):
@@ -200,8 +207,8 @@ class MapTagHandler:
         i = 0
         self._my_found_tags_x = []
         self._my_found_tags_y = []
-        filenamex = "x.txt"
-        filenamey = "y.txt"
+        filenamex = expanduser("~/catkin_ws/src/map_tag_handler/nodes/x.txt")
+        filenamey = expanduser("~/catkin_ws/src/map_tag_handler/nodes/y.txt")
         xfile = open(filenamex, 'r')
         yfile = open(filenamey, 'r')
         strx = xfile.readline()
@@ -209,10 +216,13 @@ class MapTagHandler:
         while len(strx) is not 0:
             self._my_found_tags_x.append(float(strx))
             self._my_found_tags_y.append(float(stry))
+            self._tags_stats.append(TAG_STAT_OPEN)
             strx = xfile.readline()
             stry = yfile.readline()
         xfile.close()
         yfile.close()
+        print 'tx:', self._my_found_tags_x
+        print 'ty:', self._my_found_tags_y
 
     def find_first_tag(self, robot_pos_x, robot_pos_y):
         print 'find first tag'
@@ -279,38 +289,40 @@ class MapTagHandler:
         map_width = meta_data.width
         current_map = trimmed_map.reshape((map_width, map_height))
         # distances from each tag to each others
-        self._distance_values = np.array(np.shape(len(self._my_found_tags_x), len(self._my_found_tags_x)))
+        self._distance_values = np.zeros((len(self._my_found_tags_x), len(self._my_found_tags_x)), dtype=int)
         # index of start values
         for i in range(0, len(self._my_found_tags_x)):
             print 'Calculation in progress Tagnr: ', i
             cxi, cyi = self.transform_to_pos(self._my_found_tags_x[i], self._my_found_tags_y[i])
             start_pose = np.array([cxi, cyi])
-            path = [start_pose]
+            open_list = [start_pose]
             closed_list = []
-            distance = 0
-            distance_map = np.ndarray(np.shape(map_width, map_height))
-            while len(path) > 0:
-                current_path = path.pop(0)
+            dist_list = []
+            dist_list.append(0)
+            distance_map = np.zeros((map_width, map_height), dtype=int)
+            while len(open_list) > 0:
+                current_path = open_list.pop(0)
+                distance = dist_list.pop(0) + 1
                 closed_list.append(current_path)
                 current_x = current_path[0]
                 current_y = current_path[1]
                 # is wall
-                if current_map[current_y, current_x] == 1:
+                if current_map[current_y, current_x] == 100 or current_map[current_y, current_x] == -1:
                     continue
                 if current_map[current_y, current_x] == 0:
                     distance_map[current_y][current_x] = distance
                 directions = np.array([[current_x - 1, current_y], [current_x + 1, current_y],
-                                       [current_x, current_y - 1], [current_x, current_y + 1]])
+                                       [current_x, current_y - 1], [current_x, current_y + 1]], dtype=int)
                 np.random.shuffle(directions)
                 for x in directions:
                     if not self.cointains_pos(x, closed_list):
-                        if not self.cointains_pos(x, path):
-                            path.append(x)
-                distance += 1
+                        if not self.cointains_pos(x, open_list):
+                            open_list.append(x)
+                            dist_list.append(distance)
             for j in range(0, len(self._my_found_tags_x)):
                 cxj, cyj = self.transform_to_pos(self._my_found_tags_x[j], self._my_found_tags_y[j])
-                p1 = distance_map[cxi][cyi]
-                p2 = distance_map[cxj][cyj]
+                p1 = distance_map[cyi][cxi]
+                p2 = distance_map[cyj][cxj]
                 dist = abs(p1 - p2)
                 self._distance_values[i][j] = dist
                 print 'current calculated distances:'

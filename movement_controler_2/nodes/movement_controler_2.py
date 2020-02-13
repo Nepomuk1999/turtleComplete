@@ -14,7 +14,7 @@ from explore_labyrinth_srv.srv import *
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal, MoveBaseResult
 from nav_msgs.msg import OccupancyGrid
 from nav_msgs.msg import Odometry
-from geometry_msgs.msg import Twist, Pose, PoseWithCovariance
+from geometry_msgs.msg import Twist, Pose, PoseWithCovarianceStamped
 from map_tag_handler_srv.srv import *
 from sensor_msgs.msg import LaserScan
 
@@ -28,7 +28,7 @@ BACK_RIGHT = 2
 PI = 3.1415926535897
 VEL_STRAIGHT = 0.15
 TIME_STRAIGHT = 2
-POSE_DEVIATION = 0.4
+POSE_DEVIATION = 0.5
 
 STAT_FIND_POS = 'find_pos'
 STAT_COLLECT_TAGS = 'collect_tags'
@@ -48,11 +48,6 @@ class MovementController:
         print 'move base server connected'
         self._tag_service = rospy.ServiceProxy('get_next_Tag', TagService, headers=None)
         self._status = STAT_FIND_POS
-        print 'wait for robot pose'
-        msg = rospy.wait_for_message('robot_pose', Pose)
-        print 'robot pose recived'
-        self._start_x = msg.position.x
-        self._start_y = msg.position.y
         self._turtlebot_pub = rospy.Publisher('cmd_vel', Twist, queue_size=10)
         self._ranges = None
         self._lidar_data = rospy.Subscriber('scan', LaserScan, self.lidar_callback)
@@ -61,30 +56,26 @@ class MovementController:
         self._oneigthy_degree_index = len(self._ranges) / 2
         self._twoseventy_degree_index = self._ninety_degree_index + self._oneigthy_degree_index
         self._threesixty_degree_index = len(self._ranges)
-        self._lidar_data = rospy.Subscriber('amcl_pose', PoseWithCovariance, self.amcl_pose_callback)
+        self._lidar_data = rospy.Subscriber('amcl_pose', PoseWithCovarianceStamped, self.amcl_pose_callback)
         self._covariance = None
-        rospy.wait_for_message('amcl_pose', PoseWithCovariance)
-
-        self._pose_pub_sub = rospy.Subscriber('robot_pose', Pose, self.pose_callback)
+        rospy.wait_for_message('amcl_pose', PoseWithCovarianceStamped)
         self._current_pose = None
-        self._current_x = None
-        self._current_y = None
-        rospy.wait_for_message('robot_pose', Pose)
+        self._current_pos_x = 0.0
+        self._current_pos_y = 0.0
         print 'init finished'
 
-    def pose_callback(self, msg):
-        self._callback_counter = self._callback_counter + 1
-        self._current_pose = msg
-        self._current_x = self._current_pose.position.x
-        self._current_y = self._current_pose.position.y
-        self._current_x, self._current_y = self.transform_to_pos(self._current_x, self._current_y)
-
     def lidar_callback(self, data):
-        self._ranges = data.ranges
+        self._ranges = np.array(data.ranges)
+        self._ranges[self._ranges >= 2.0] = 2.0
+        self._ranges[self._ranges <= 0.20] = 0.0
 
     def amcl_pose_callback(self, msg):
+        msg = msg.pose
         cv = np.array(msg.covariance)
         self._covariance = cv.reshape((6, 6))
+        self._current_pose = msg.pose
+        self._current_pos_x = msg.pose.position.x
+        self._current_pos_y = msg.pose.position.y
 
     def move_straight(self, speed):
         twist = Twist()
@@ -138,50 +129,58 @@ class MovementController:
 
     def control_loop(self):
         print 'movment_controler start loop'
+        first_run = True
         while not rospy.is_shutdown():
+            print 'calc elips'
             ea = self.calc_elips_area(self._covariance)
-            if ea < 0.075:
+            print ea
+            if 0.3 > abs(ea):
                 self._status = STAT_COLLECT_TAGS
             else:
                 self._status = STAT_FIND_POS
-            if self._status is STAT_FIND_POS:
+            print self._status
+            if self._status == STAT_FIND_POS:
                 #rotate
-                print 'start rotation'
-                self.rotate_robot(0.0, 25.0, 360.0)
-                print 'stop rotation'
-                self.stop_turtlebot()
+                # print 'start rotation'
+                # self.rotate_robot(0.0, 50.0, 360.0)
+                # print 'stop rotation'
+                # self.stop_turtlebot()
+                # time.sleep(1.0)
                 #drive free direction
                 dir = self.eval_dir_to_go(self._ranges)
-                if dir is FRONT_LEFT:
-                    self.rotate_robot(0.0, -15.0, 45.0)
-                if dir is FRONT_RIGHT:
-                    self.rotate_robot(0.0, 15.0, 45.0)
-                if dir is BACK_LEFT:
-                    self.rotate_robot(0.0, -15.0, 45.0)
-                if dir is BACK_RIGHT:
-                    self.rotate_robot(0.0, 15.0, 45.0)
-                self.move_straight(0.10)
+                print dir
+                if dir == FRONT_LEFT:
+                    self.rotate_robot(0.0, 45.0, 45.0)
+                if dir == FRONT_RIGHT:
+                    self.rotate_robot(0.0, 45.0, 315.0)
+                if dir == BACK_LEFT:
+                    self.rotate_robot(0.0, 45.0, 135.0)
+                if dir == BACK_RIGHT:
+                    self.rotate_robot(0.0, 45.0, 225.0)
+                self.move_straight(0.1)
                 time.sleep(2.0)
                 self.stop_turtlebot()
-            elif self._status is STAT_COLLECT_TAGS:
-                if not self.is_current_pos_goal_pos():
-                    rospy.wait_for_message('robot_pose', Pose)
+                time.sleep(1.0)
+            elif self._status == STAT_COLLECT_TAGS:
+                if first_run or self.is_current_pos_goal_pos():
                     req = TagServiceRequest()
-                    req.current_pose_x = self._current_x
-                    req.current_pose_y = self._current_y
+                    req.current_pose_x = self._current_pos_x
+                    req.current_pose_y = self._current_pos_y
                     response = self._tag_service(req)
-                    self._current_goal_x = response.x
-                    self._current_goal_y = response.y
+                    print'response: ', response
+                    self._current_goal_x = response.tags_x
+                    self._current_goal_y = response.tags_y
+                    first_run = False
                 goal = MoveBaseGoal()
                 goal.target_pose.header.frame_id = "map"
                 goal.target_pose.header.stamp = rospy.Time.now()
-                goal.target_pose.pose.position.x = response.x
-                goal.target_pose.pose.position.y = response.y
+                goal.target_pose.pose.position.x = self._current_goal_x
+                goal.target_pose.pose.position.y = self._current_goal_y
                 goal.target_pose.pose.orientation.w = 1
                 self._current_goal_msg = goal
                 print 'pub goal'
-                print response.x
-                print response.y
+                print self._current_goal_x
+                print self._current_goal_y
                 self._move_base_client.send_goal(self._current_goal_msg)
                 # self._move_base_client.wait_for_result(rospy.Duration.from_sec(20))
                 self._move_base_client.wait_for_result(rospy.Duration.from_sec(60))
@@ -193,8 +192,8 @@ class MovementController:
             xl = self._current_goal_x - POSE_DEVIATION / 2
             yu = self._current_goal_y + POSE_DEVIATION / 2
             yl = self._current_goal_y - POSE_DEVIATION / 2
-            if xl <= self._current_goal_x <= xu:
-                if yl <= self._current_goal_y <= yu:
+            if xl <= self._current_pos_x <= xu:
+                if yl <= self._current_pos_y <= yu:
                     b = True
         return b
 
@@ -229,7 +228,7 @@ class MovementController:
 
     def calc_elips_area(self, cov):
         c = cov[0:2, 0:2]
-        eig_val, eig_vec = np.linalg.eig(np.linalg.inv)
+        eig_val, eig_vec = np.linalg.eig(np.linalg.inv(c))
         eigen_x, eigen_y = eig_vec[:, 0]
         deg = np.degrees(np.arctan2(eigen_y.real, eigen_x.real))
         a, b = 2 / np.sqrt(eig_val)
