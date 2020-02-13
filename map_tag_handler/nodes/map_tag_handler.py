@@ -55,12 +55,12 @@ class MapTagHandler:
         self._offset_y = meta_data.origin.position.y
         self._resolution = meta_data.resolution
 
-        top_ser = rospy.get_param('topic_searching')
-        top_rea = rospy.get_param('topic_reached')
-        self._search_pub = rospy.Publisher(top_ser, Point, queue_size=10)
-        self._search_sub = rospy.Subscriber(top_ser, Point, self.top_ser_callback())
-        self._reached_pub = rospy.Publisher(top_rea, Point, queue_size=10)
-        self._reached_sub = rospy.Subscriber(top_rea, Point, self.top_rea_callback)
+        #top_ser = rospy.get_param('topic_searching')
+        #top_rea = rospy.get_param('topic_reached')
+        #self._search_pub = rospy.Publisher(top_ser, Point, queue_size=10)
+        #self._search_sub = rospy.Subscriber(top_ser, Point, self.top_ser_callback())
+        #self._reached_pub = rospy.Publisher(top_rea, Point, queue_size=10)
+        #self._reached_sub = rospy.Subscriber(top_rea, Point, self.top_rea_callback)
 
         self._start_x_coord = 0.0
         self._start_y_coord = 0.0
@@ -73,7 +73,7 @@ class MapTagHandler:
 
         self._distance_values = None
         self._stat = STAT_SEARCH
-        if self.stat == STAT_DRIVE:
+        if self._stat == STAT_DRIVE:
             self.read_tags_from_file()
             self.calculate_distances()
         print 'end init'
@@ -177,17 +177,23 @@ class MapTagHandler:
     def write_to_file(self, x_data, y_data):
         print 'write file'
         i = 0
-        filenamex = "x.txt"
-        filenamey = "y.txt"
+        path = os.getcwd()
+        filenamex = path, "/x.txt"
+        filenamey = path, "/y.txt"
         xfile = open(filenamex, 'w+')
         yfile = open(filenamey, 'w+')
+        print len(x_data)
+        print xfile.name
+        i = 0
         while i < len(x_data):
-            xfile.write(x_data[i])
+            xfile.write(str(x_data[i]))
             xfile.write('\n')
-            yfile.write(y_data[i])
+            yfile.write(str(y_data[i]))
             yfile.write('\n')
+            i = i + 1
         xfile.close()
         yfile.close()
+        print 'close files'
 
     def read_tags_from_file(self):
         i = 0

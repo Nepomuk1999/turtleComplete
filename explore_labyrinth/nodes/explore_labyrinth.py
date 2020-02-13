@@ -333,7 +333,6 @@ class LabyrinthExplorer:
 
     def movementcontroller(self, goal):
         print 'calc next pos'
-        print goal
         self._start_x_meter = goal.x
         self._start_y_meter = goal.y
         self._start_x_coord, self._start_y_coord = self.transform_to_pos(self._start_x_meter, self._start_y_meter)
@@ -357,6 +356,8 @@ class LabyrinthExplorer:
             plt.imshow(cleared_map, cmap='hot', interpolation='nearest')
             plt.show()
         next_xm, next_ym = self.transform_to_meter(next_x, next_y)
+        print 'next_x:', next_xm
+        print 'next_y', next_ym
         return ExploreLabyrinthResponse(next_xm, next_ym)
 
 

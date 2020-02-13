@@ -101,12 +101,17 @@ class CameraController:
         print msg.data
         if msg.data == STAT_SAVE:
             print 'in if'
-            self.mean_token()
+            token_glob_x, token_glob_y = self.mean_token()
             print 'prepare send tag to save'
+            print token_glob_x
+            print token_glob_y
             msg = SaveTag()
-            for i in range(0, len(self._pos_token_glob_x)):
-                msg.x_values.append(self._pos_token_glob_x[i])
-                msg.y_values.append(self._pos_token_glob_y[i])
+            for i in range(0, len(token_glob_x)):
+                msg.x_values.append(token_glob_x[i])
+                msg.y_values.append(token_glob_y[i])
+                # msg.x_values.append(self._pos_token_glob_x[i])
+                # msg.y_values.append(self._pos_token_glob_y[i])
+            print 'msg', msg
             self._save_tags_pub.publish(msg)
             print 'lists to save sendt'
 
@@ -217,9 +222,9 @@ class CameraController:
         s = generate_binary_structure(2, 2)
         labeled_array, num_features = label(array2, structure=s)
         #print labeled_array
-        f = plt.figure(1)
-        plt.imshow(labeled_array, cmap='hot', interpolation='nearest')
-        plt.show()
+        # f = plt.figure(1)
+        # plt.imshow(labeled_array, cmap='hot', interpolation='nearest')
+        # plt.show()
         pos_token = np.zeros(shape=(2, num_features), dtype=int)
         pos_token_glob = np.zeros(shape=(2, num_features))
         for i in range(0,num_features):
@@ -237,10 +242,16 @@ class CameraController:
             pos_token[0, i] = int(round(position_y/len(pos_max[0])))
             pos_token[1, i] = int(round(position_x/len(pos_max[0])))
             labeled_array[pos_token[0, i], pos_token[1, i]] = 100
-        self.pos_token_glob_y = (pos_token[0,:]-rand+min_y)/100
-        self.pos_token_glob_x = (pos_token[1,:]-rand+min_x)/100
-        print 'pos_token_glob_x', self.pos_token_glob_x
-        print 'pos_token_glob_y', self.pos_token_glob_y
+        token_glob_y = (pos_token[0, :]-rand+min_y)/100
+        token_glob_x = (pos_token[1, :]-rand+min_x)/100
+        print 'pos_token_glob_x', token_glob_x
+        print 'pos_token_glob_y', token_glob_y
+        return token_glob_x, token_glob_y
+
+        # self.pos_token_glob_y = (pos_token[0,:]-rand+min_y)/100
+        # self.pos_token_glob_x = (pos_token[1,:]-rand+min_x)/100
+        # print 'pos_token_glob_x', self.pos_token_glob_x
+        # print 'pos_token_glob_y', self.pos_token_glob_y
         # fi = plt.figure(2)
         # plti.imshow(labeled_array, cmap='hot', interpolation='nearest')
         # fi.show()

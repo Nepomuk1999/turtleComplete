@@ -125,6 +125,7 @@ class MovementController:
 
     def control_loop(self):
         while not rospy.is_shutdown():
+            print 'status = ', self._status
             try:
                 req = ExploreLabyrinthRequest()
                 req.x = self._start_x
@@ -138,13 +139,10 @@ class MovementController:
                     self._status = STAT_FINISH
                 elif self._status == STAT_ROTATE:
                     print 'start rotation'
-                    b = self.rotate_robot(0.0, 25.0, 360.0)
+                    b = self.rotate_robot(0.0, 50.0, 360.0)
                     print 'stop rotation'
                     self.stop_turtlebot()
-                    if self._status == STAT_FINISH:
-                        self._status = STAT_END
-                    else:
-                        self._status = STAT_MAPPING
+                    self._status = STAT_MAPPING
                 elif self._status == STAT_END:
                     print STAT_END
                     #playsound('/home/christoph/catkin_ws/src/movement_controler/nodes/R2D2.mp3')
