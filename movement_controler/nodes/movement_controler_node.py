@@ -143,8 +143,8 @@ class MovementController:
                     self.stop_turtlebot()
                     if self._status == STAT_FINISH:
                         self._status = STAT_END
-                    elif self._status == STAT_MAPPING:
-                        self._status = STAT_ROTATE
+                    else:
+                        self._status = STAT_MAPPING
                 elif self._status == STAT_END:
                     print STAT_END
                     #playsound('/home/christoph/catkin_ws/src/movement_controler/nodes/R2D2.mp3')
