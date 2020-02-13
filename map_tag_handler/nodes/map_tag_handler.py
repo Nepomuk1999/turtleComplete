@@ -65,7 +65,7 @@ class MapTagHandler:
         self._start_x_coord = 0.0
         self._start_y_coord = 0.0
 
-        self._active_tags = []
+        self._tags_stats = []
         self._my_found_tags_x = []
         self._my_found_tags_y = []
 
@@ -79,16 +79,28 @@ class MapTagHandler:
         print 'end init'
 
     def top_ser_callback(self, data):
-        pass
+        x = data.x
+        y = data.y
+        i = self.find_tag_index(x, y)
+        self.set_tag_stat(i, TAG_STAT_SER)
 
     def top_ser_pub(self, x, y):
-        pass
+        p = Point()
+        p.x = x
+        p.y = y
+        self._search_pub.publish(p)
 
     def top_rea_callback(self, data):
-        pass
+        x = data.x
+        y = data.y
+        i = self.find_tag_index(x, y)
+        self.set_tag_stat(i, TAG_STAT_FOUND)
 
-    def top_rea_pub(self, x,y):
-        pass
+    def top_rea_pub(self, x, y):
+        p = Point()
+        p.x = x
+        p.y = y
+        self._search_pub.publish(p)
 
     def provide_next_tag(self, msg):
         if self.call_counter == 0:
@@ -99,10 +111,16 @@ class MapTagHandler:
             goal_x, goal_y = self.find_first_tag(self._start_x_coord, self._start_y_coord)
             goal_x, goal_y = self.transform_to_meter(goal_x, goal_y)
         else:
+            self.top_rea_pub(msg.current_pose_x, msg.current_pose_y)
+            i = self.find_tag_index(msg.current_pose_x, msg.current_pose_y)
+            self.set_tag_stat(i, TAG_STAT_FOUND)
             goal_x, goal_y = self.get_next_tag()
         print'send next_goal'
         print 'goal_x', goal_x
         print 'goal_y', goal_y
+        self.top_ser_pub(goal_x, goal_y)
+        i = self.find_tag_index(goal_x, goal_y)
+        self.set_tag_stat(i, TAG_STAT_SER)
 
         resp = TagServiceResponse()
         resp.tags_x = goal_x
@@ -110,25 +128,34 @@ class MapTagHandler:
         return TagServiceResponse()
 
     def set_tag_stat(self, tag_index, stat):
-        pass
+        self._tags_stats[tag_index] = stat
 
-    def find_taf_index(self):
+    def find_tag_index(self, tx, ty):
+        xu = tx + FIRST_TAG_TOLERANCE/2
+        xl = tx - FIRST_TAG_TOLERANCE/2
+        yu = ty + FIRST_TAG_TOLERANCE/2
+        yl = ty - FIRST_TAG_TOLERANCE/2
+        for i in range(0, len(self._my_found_tags_x)):
+            if xl <= self._my_found_tags_x[i] <= xu:
+                if yl <= self._my_found_tags_y[i] <= yu:
+                    return i
+        return -1
 
     def get_next_tag(self):
         for i in range(TAG_STAT_OPEN, TAG_STAT_FOUND):
             minDist = 100000.0
             minDistIndex = -1
-            for j in range(0, len(self._active_tags)):
+            for j in range(0, len(self._tags_stats)):
                 # search next tag with smallest distance
-                if self._active_tags[j] == i:
+                if self._tags_stats[j] == i:
                     if minDist > self._distance_values[self._last_send_tag_index][j]:
                         minDist = self._distance_values[self._last_send_tag_index][j]
                         minDistIndex = j
             if minDistIndex != -1:
                 self._last_send_tag_index = minDistIndex
                 self.top_ser_pub(self._my_found_tags_x[minDistIndex], self._my_found_tags_y[minDistIndex])
-                return self._my_found_tags_x[minDistIndex], self._my_found_tags_y[minDistIndex]
-        return self._start_x_coord, self._start_y_coord
+                return self._my_found_tags_x[minDistIndex], self._my_found_tags_y[minDistIndex], minDistIndex
+        return self._start_x_coord, self._start_y_coord, -1
 
     def save_tags_callback(self, data):
         print 'got calback data:', data
@@ -232,7 +259,7 @@ class MapTagHandler:
         for i in range(0, len(self._my_found_tags_x)):
             if xl <= self._my_found_tags_x[i] <= xu:
                 if yl <= self._my_found_tags_y[i] <= yu:
-                    self._active_tags[i] = TAG_STAT_SER
+                    self._tags_stats[i] = TAG_STAT_SER
                     self._last_send_tag_index = i
 
     def calculate_distances(self):
