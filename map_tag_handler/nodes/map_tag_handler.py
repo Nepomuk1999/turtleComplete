@@ -109,6 +109,11 @@ class MapTagHandler:
         resp.tags_y = goal_y
         return TagServiceResponse()
 
+    def set_tag_stat(self, tag_index, stat):
+        pass
+
+    def find_taf_index(self):
+
     def get_next_tag(self):
         for i in range(TAG_STAT_OPEN, TAG_STAT_FOUND):
             minDist = 100000.0
@@ -150,8 +155,10 @@ class MapTagHandler:
         xfile = open(filenamex, 'w+')
         yfile = open(filenamey, 'w+')
         while i < len(x_data):
-            xfile.write(x_data[i] + '\n')
-            yfile.write(y_data[i] + '\n')
+            xfile.write(x_data[i])
+            xfile.write('\n')
+            yfile.write(y_data[i])
+            yfile.write('\n')
         xfile.close()
         yfile.close()
 
