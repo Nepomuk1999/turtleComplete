@@ -124,13 +124,16 @@ class MovementController:
             self._move_base_client.cancel_all_goals()
 
     def control_loop(self):
+        calculate = True
         while not rospy.is_shutdown():
             print 'status = ', self._status
             try:
-                req = ExploreLabyrinthRequest()
-                req.x = self._start_x
-                req.y = self._start_y
-                response = self._explore_service(req)
+                if calculate:
+                    req = ExploreLabyrinthRequest()
+                    req.x = self._start_x
+                    req.y = self._start_y
+                    response = self._explore_service(req)
+                    calculate = False
                 if self.chek_for_start_pose_in_range(response.x, response.y) and self._status != STAT_FINISH:
                     str = String(STAT_SAVE)
                     print str.data
@@ -159,6 +162,8 @@ class MovementController:
                     self._move_base_client.send_goal(self._current_goal_msg)
                     # self._move_base_client.wait_for_result(rospy.Duration.from_sec(40))
                     self._move_base_client.wait_for_result()
+                    if self._move_base_client.get_state() is GoalStatus.SUCCEEDED:
+                        calculate = True
                     self.stop_move_base()
                     if self._status == STAT_FINISH:
                         self._status = STAT_END

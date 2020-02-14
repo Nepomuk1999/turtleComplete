@@ -1,0 +1,6 @@
+string stat
+float64 searched_tag_x
+float64 searched_tag_y
+---
+float64 correct_x
+float64 correct_y

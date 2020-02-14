@@ -1,0 +1,10 @@
+<launch>
+    <group>
+        <arg name="model" default="$(env TURTLEBOT3_MODEL)" doc="model type [burger]"/>
+        <param name="model" value="$(arg model)"/>
+
+        <!-- turtlebot3_teleop_key already has its own built in velocity smoother -->
+        <node pkg="tag_pos_camera" type="tag_pos_camera.py" name="tag_pos_camera"  output="screen">
+        </node>
+    </group>
+</launch>

@@ -12,6 +12,7 @@ from actionlib_msgs.msg import GoalStatus
 from std_msgs.msg import Int16, Int16MultiArray
 from explore_labyrinth_srv.srv import *
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal, MoveBaseResult
+from correct_pos_srv.srv import *
 from nav_msgs.msg import OccupancyGrid
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Twist, Pose, PoseWithCovarianceStamped
@@ -28,10 +29,12 @@ BACK_RIGHT = 2
 PI = 3.1415926535897
 VEL_STRAIGHT = 0.15
 TIME_STRAIGHT = 2
-POSE_DEVIATION = 0.5
+POSE_DEVIATION = 0.1
+GOAL_MIN_DIST_TO_WALL = 8
 
 STAT_FIND_POS = 'find_pos'
 STAT_COLLECT_TAGS = 'collect_tags'
+STAT_CHECK_TOKEN = 'check_token'
 
 if os.name == 'nt':
     pass
@@ -41,8 +44,8 @@ else:
 class MovementController:
 
     def __init__(self):
-        self._current_goal_x = 0.0
-        self._current_goal_y = 0.0
+        self._current_tag_x = 0.0
+        self._current_tag_y = 0.0
         self._move_base_client = actionlib.SimpleActionClient('move_base', MoveBaseAction)
         self._move_base_client.wait_for_server()
         print 'move base server connected'
@@ -62,6 +65,10 @@ class MovementController:
         self._current_pose = None
         self._current_pos_x = 0.0
         self._current_pos_y = 0.0
+
+        self._interrupt_pub = rospy.Publisher('check_token', CorrectPosSrv, queue_size=10)
+        self._current_mb_goal_x = 0.0
+        self._current_mb_goal_y = 0.0
         print 'init finished'
 
     def lidar_callback(self, data):
@@ -129,12 +136,12 @@ class MovementController:
 
     def control_loop(self):
         print 'movment_controler start loop'
-        first_run = True
+        next_token = True
         while not rospy.is_shutdown():
             print 'calc elips'
             ea = self.calc_elips_area(self._covariance)
             print ea
-            if first_run and 0.3 > abs(ea):
+            if next_token and 0.3 > abs(ea):
                 self._status = STAT_COLLECT_TAGS
             elif abs(ea) > 1.5:
                 self._status = STAT_COLLECT_TAGS
@@ -157,36 +164,111 @@ class MovementController:
                 self.stop_turtlebot()
                 time.sleep(1.0)
             elif self._status == STAT_COLLECT_TAGS:
-                if first_run or self.is_current_pos_goal_pos():
+                #if next_token or self.is_current_pos_goal_pos():
+                if next_token:
                     req = TagServiceRequest()
                     req.current_pose_x = self._current_pos_x
                     req.current_pose_y = self._current_pos_y
                     response = self._tag_service(req)
                     print'response: ', response
-                    self._current_goal_x = response.tags_x
-                    self._current_goal_y = response.tags_y
-                    first_run = False
+                    self._current_tag_x = response.tags_x
+                    self._current_tag_y = response.tags_y
+                    self._current_mb_goal_x, self._current_mb_goal_y = self.get_away()
+                    next_token = False
                 goal = MoveBaseGoal()
                 goal.target_pose.header.frame_id = "bauwen/map"
                 goal.target_pose.header.stamp = rospy.Time.now()
-                goal.target_pose.pose.position.x = self._current_goal_x
-                goal.target_pose.pose.position.y = self._current_goal_y
+                goal.target_pose.pose.position.x = self._current_mb_goal_x
+                goal.target_pose.pose.position.y = self._current_mb_goal_y
                 goal.target_pose.pose.orientation.w = 1
                 self._current_goal_msg = goal
                 print 'pub goal'
-                print self._current_goal_x
-                print self._current_goal_y
+                print self._current_tag_x
+                print self._current_tag_y
                 self._move_base_client.send_goal(self._current_goal_msg)
                 # self._move_base_client.wait_for_result(rospy.Duration.from_sec(20))
                 self._move_base_client.wait_for_result(rospy.Duration.from_sec(60))
+                if self._move_base_client.get_state() is GoalStatus.SUCCEEDED:
+                    req = CorrectPosSrvRequest()
+                    req.stat = STAT_CHECK_TOKEN
+                    req.searched_tag_x = self._current_tag_x
+                    req.searched_tag_y = self._current_tag_y
+                    resp = self._interrupt_pub.publish(req)
+                    self._current_mb_goal_x = resp.correct_x
+                    self._current_mb_goal_y = resp.correct_y
+                    next_token = True
+
+    def get_away(self):
+        current_map = self.get_map()
+        start_pose = np.array([self._current_pos_x, self._current_pos_y])
+        path = [start_pose]
+        closed_list = []
+        first_run = True
+        while len(path) > 0:
+            current_path = path.pop(0)
+            closed_list.append(current_path)
+            current_x = current_path[0]
+            current_y = current_path[1]
+            # is wall
+            if current_map[current_y, current_x] == 1 or (current_map[current_y, current_x] == -1 and not first_run):
+                continue
+            # known cell found
+            if self.check_goal_pos(current_x, current_y, current_map):
+                return current_x, current_y
+            directions = np.array([[current_x + 1, current_y], [current_x - 1, current_y],
+                                   [current_x, current_y + 1], [current_x, current_y - 1]])
+            np.random.shuffle(directions)
+            for i in directions:
+                if not self.cointains_pos(i, closed_list):
+                    if not self.cointains_pos(i, path):
+                        path.append(i)
+            first_run = False
+        print 'No space found'
+        return self._current_pos_x, self._current_pos_y
+
+    def get_map(self):
+        occupancy_grid = rospy.wait_for_message("map", OccupancyGrid)
+        meta_data = occupancy_grid.info
+        occupancy_map = occupancy_grid.data
+        trimmed_map = np.array(occupancy_map)
+        self._map_height = meta_data.height
+        self._map_width = map_width = meta_data.width
+        current_map = trimmed_map.reshape((self._map_width, self._map_height))
+        return current_map
+
+    def check_goal_pos(self, pos_x, pos_y, current_map):
+        lower_x = pos_x - (np.int(GOAL_MIN_DIST_TO_WALL / 2))
+        if lower_x < 0:
+            lower_x = 0
+        upper_x = pos_x + (np.int(GOAL_MIN_DIST_TO_WALL / 2))
+        if upper_x > self._map_width - 1:
+            upper_x = self._map_width - 1
+        lower_y = pos_y - (np.int(GOAL_MIN_DIST_TO_WALL / 2))
+        if lower_y < 0:
+            lower_y = 0
+        upper_y = pos_y + (np.int(GOAL_MIN_DIST_TO_WALL / 2))
+        if upper_y > self._map_height - 1:
+            upper_y = self._map_height - 1
+        current_blobb = current_map[lower_y:upper_y + 1, lower_x:upper_x + 1]
+        if np.sum(np.absolute(current_blobb)) == 0:
+            return True
+        else:
+            return False
+
+    def cointains_pos(self, array, array_array):
+        for i in array_array:
+            if i[0] == array[0]:
+                if i[1] == array[1]:
+                    return True
+        return False
 
     def is_current_pos_goal_pos(self):
         b = False
-        if self._current_goal_x and self._current_goal_y != 0.0:
-            xu = self._current_goal_x + POSE_DEVIATION / 2
-            xl = self._current_goal_x - POSE_DEVIATION / 2
-            yu = self._current_goal_y + POSE_DEVIATION / 2
-            yl = self._current_goal_y - POSE_DEVIATION / 2
+        if self._current_tag_x and self._current_tag_y != 0.0:
+            xu = self._current_tag_x + POSE_DEVIATION / 2
+            xl = self._current_tag_x - POSE_DEVIATION / 2
+            yu = self._current_tag_y + POSE_DEVIATION / 2
+            yl = self._current_tag_y - POSE_DEVIATION / 2
             if xl <= self._current_pos_x <= xu:
                 if yl <= self._current_pos_y <= yu:
                     b = True
