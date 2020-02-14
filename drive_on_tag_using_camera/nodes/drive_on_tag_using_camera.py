@@ -19,7 +19,7 @@ class DriveTagCamera:
     def __init__(self):
         self._turtlebot_pub = rospy.Publisher('cmd_vel', Twist, queue_size=10)
         self._as = rospy.Service('drive_on_tag', ExploreLabyrinth, self.drive_callback)
-        self._pose_pub_sub = rospy.Subscriber('robot_pose', Pose, self.pose_callback)
+        self._pose_pub_sub = rospy.Subscriber('pose', Pose, self.pose_callback)
         self._current_pos_x = None
         self._current_pos_y = None
         self.blob_sub = rospy.Subscriber('block_data', PixyData, self.blobb_callback)
@@ -30,7 +30,7 @@ class DriveTagCamera:
     def drive_callback(self, data):
         target_blobb_x = data.x
         target_blobb_y = data.y
-        rospy.wait_for_message('robot_pose', Pose)
+        rospy.wait_for_message('pose', Pose)
         b = self.find_blobb()
 
 

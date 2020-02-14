@@ -9,7 +9,7 @@ import tf
 from scipy.ndimage import label, generate_binary_structure
 from explore_labyrinth_srv.srv import *
 from nav_msgs.msg import OccupancyGrid
-from geometry_msgs.msg import Twist, Pose, PointStamped, Point
+from geometry_msgs.msg import Twist, Pose, PointStamped, Point, PoseStamped
 from tf.transformations import euler_from_quaternion, quaternion_from_euler
 from std_msgs.msg import String, Time
 from map_tag_handler_srv.srv import *
@@ -37,14 +37,14 @@ class CameraController:
         self._blob_y = 0.0
         self._blob_x = 0.0
         self._last_stamp = Time()
-        self._pose_pub_sub = rospy.Subscriber('robot_pose', Pose, self.pose_pub_callback)
+        self._pose_pub_sub = rospy.Subscriber('pose', PoseStamped, self.pose_pub_callback)
         self._current_pose_pub = None
         self._current_x_pub = None
         self._current_y_pub = None
         self._current_orientation_pub = None
         self._phi_pub = None
         print 'wait pose'
-        rospy.wait_for_message('robot_pose', Pose)
+        rospy.wait_for_message('pose', PoseStamped)
         print 'got pose'
         self._found_x = []
         self._found_y = []
@@ -62,11 +62,13 @@ class CameraController:
     def blobb_callback(self, blob_data):
         stamp_nsec = blob_data.header.stamp.nsecs
         if stamp_nsec != 0:
+            print stamp_nsec
             self._last_stamp = blob_data.header.stamp
             self._blob_y = blob_data.blocks[0].roi.x_offset
             self._blob_x = blob_data.blocks[0].roi.y_offset
             rc_blob_x, rc_blob_y = self.get_pose_token_robot_coord(self._blob_x, self._blob_y)
             mc_blob_x, mc_blob_y = self.get_pose_token_map(rc_blob_x, rc_blob_y, self._last_stamp)
+            print  mc_blob_x, mc_blob_y
             if mc_blob_y != 0 and mc_blob_x != 0:
                 print 'mc_blob_x:', mc_blob_x
                 print 'mc_blob_y:', mc_blob_y
@@ -91,9 +93,9 @@ class CameraController:
             print 'lists to save send'
 
     def pose_pub_callback(self, msg):
-        self._current_pose_pub = msg
+        self._current_pose_pub = msg.pose
         self._current_x_pub = self._current_pose_pub.position.x
-        self._current_y_pub = self._current_pose_pub.position.x
+        self._current_y_pub = self._current_pose_pub.position.y
         self._current_orientation_pub = self._current_pose_pub.orientation
         self._phi_pub = self.get_rotation(msg)
 
@@ -126,11 +128,11 @@ class CameraController:
 
     def get_pose_token_map(self, rc_blob_x, rc_blob_y, blob_data_stamp):
         ps = PointStamped()
-        ps.header.frame_id = 'base_footprint'
+        ps.header.frame_id = 'bauwen/base_footprint'
         ps.header.stamp = blob_data_stamp
         ps.point = Point(x=rc_blob_x, y=rc_blob_y)
         try:
-            ps_map = self._tl.transformPoint('map', ps)
+            ps_map = self._tl.transformPoint('bauwen/map', ps)
             mx = ps_map.point.x
             my = ps_map.point.y
             #Return in m
@@ -205,7 +207,7 @@ class CameraController:
         plt.show()
 
     def get_rotation(self, msg):
-        orientation_q = msg.orientation
+        orientation_q = msg.pose.orientation
         orientation_list = [orientation_q.x, orientation_q.y, orientation_q.z, orientation_q.w]
         (roll, pitch, yaw) = euler_from_quaternion(orientation_list)
         return yaw

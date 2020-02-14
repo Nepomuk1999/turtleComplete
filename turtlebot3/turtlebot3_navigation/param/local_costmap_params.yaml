@@ -18,7 +18,7 @@ local_costmap:
         - {name: inflation, type: "costmap_2d::InflationLayer"}
 
     sensor:
-        observation_sources: bauwen/scan
+        observation_sources: scan
         scan: {data_type: LaserScan, topic: scan, marking: true, clearing: true}
 
     inflation:

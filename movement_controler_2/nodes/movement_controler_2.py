@@ -167,7 +167,7 @@ class MovementController:
                     self._current_goal_y = response.tags_y
                     first_run = False
                 goal = MoveBaseGoal()
-                goal.target_pose.header.frame_id = "map"
+                goal.target_pose.header.frame_id = "bauwen/map"
                 goal.target_pose.header.stamp = rospy.Time.now()
                 goal.target_pose.pose.position.x = self._current_goal_x
                 goal.target_pose.pose.position.y = self._current_goal_y

@@ -15,7 +15,7 @@ from explore_labyrinth_srv.srv import *
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal, MoveBaseResult
 from nav_msgs.msg import OccupancyGrid
 from nav_msgs.msg import Odometry
-from geometry_msgs.msg import Twist, Pose
+from geometry_msgs.msg import Twist, Pose, PoseStamped
 
 # specify directions
 FRONT_LEFT = 0
@@ -54,15 +54,15 @@ class MovementController:
         self._current_goal_msg = None
         self._turtlebot_pub = rospy.Publisher('cmd_vel', Twist, queue_size=10)
         print 'wait for robot pose'
-        msg = rospy.wait_for_message('robot_pose', Pose)
+        msg = rospy.wait_for_message('pose', PoseStamped)
         print 'robot pose recived'
-        self._start_x = msg.position.x
-        self._start_y = msg.position.y
+        self._start_x = msg.pose.position.x
+        self._start_y = msg.pose.position.y
         self._free_direction = None
         self._old_free_direction = None
         self._interrupt_sub = rospy.Subscriber('interrupt_msg', String, self.interrupt_callback)
         self._interrupt_pub = rospy.Publisher('save_tags', String, queue_size=10)
-        self._start_pose_pub = rospy.Publisher('start_pose', Pose, queue_size=10)
+        self._start_pose_pub = rospy.Publisher('start_pose', PoseStamped, queue_size=10)
         self._last_x = 0.0
         self._last_y = 0.0
 
@@ -150,7 +150,7 @@ class MovementController:
                     self._last_x = response.x
                     self._last_y = response.y
                     goal = MoveBaseGoal()
-                    goal.target_pose.header.frame_id = "map"
+                    goal.target_pose.header.frame_id = "bauwen/map"
                     goal.target_pose.header.stamp = rospy.Time.now()
                     goal.target_pose.pose.position.x = response.x
                     goal.target_pose.pose.position.y = response.y

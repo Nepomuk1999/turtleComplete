@@ -42,7 +42,7 @@ if __name__ == "__main__":
     server = InteractiveMarkerServer("turtlebot3_marker_server")
     vel_pub = rospy.Publisher("cmd_vel", Twist, queue_size = 5)
     int_marker = InteractiveMarker()
-    int_marker.header.frame_id = "base_link"
+    int_marker.header.frame_id = "bauwen/base_link"
     int_marker.name = "turtlebot3_marker"
 
 
