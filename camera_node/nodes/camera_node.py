@@ -168,11 +168,15 @@ class CameraController:
                     array2[j, i] = 1
         s = generate_binary_structure(2, 2)
         labeled_array, num_features = label(array2, structure=s)
+        # print labeled_array
+        f = plt.figure(1)
+        plt.imshow(array, cmap='hot', interpolation='nearest')
+        plt.show()
 
         #print labeled_array
-        # f = plt.figure(1)
-        # plt.imshow(labeled_array, cmap='hot', interpolation='nearest')
-        # plt.show()
+        f = plt.figure(1)
+        plt.imshow(labeled_array, cmap='hot', interpolation='nearest')
+        plt.show()
 
         pos_token = np.zeros(shape=(2, num_features), dtype=int)
         for i in range(0,num_features):
@@ -196,9 +200,9 @@ class CameraController:
         print 'pos_token_glob_y', token_glob_y
         return token_glob_x, token_glob_y
 
-        # fi = plt.figure(2)
-        # plti.imshow(labeled_array, cmap='hot', interpolation='nearest')
-        # fi.show()
+        fi = plt.figure(2)
+        plt.imshow(labeled_array, cmap='hot', interpolation='nearest')
+        plt.show()
 
     def get_rotation(self, msg):
         orientation_q = msg.orientation

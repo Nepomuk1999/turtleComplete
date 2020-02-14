@@ -6,7 +6,7 @@ local_costmap:
     publish_frequency: 1.0
 
     global_frame: bauwen/odom
-    robot_base_frame: bauwen/base_link
+    robot_base_frame: bauwen/base_footprint
     resolution: 0.01
     static_map: false
     rolling_window: true
