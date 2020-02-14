@@ -236,7 +236,7 @@ class MapTagHandler:
         #set value of tags to 100
         for i in range(0, len(self._my_found_tags_x)):
             x, y = self.transform_to_pos(self._my_found_tags_x[i], self._my_found_tags_y[i])
-            current_map[y][x] = 100
+            current_map[y][x] = 1000
         start_pose = np.array([robot_pos_x, robot_pos_y])
         path = [start_pose]
         closed_list = []
@@ -252,8 +252,7 @@ class MapTagHandler:
             # is wall
             if current_map[current_y, current_x] == 1:
                 continue
-            # unknown cell found
-            if current_map[current_y, current_x] == 100:
+            if current_map[current_y, current_x] == 1000:
                 self.find_index_set_last(current_x, current_y)
                 return current_x, current_y
             # add all neighbours of current cell

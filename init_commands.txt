@@ -18,8 +18,8 @@ roslaunch map_tag_handler map_tag_handler.launch --screen
 für Aufgabe 2:
 roscore
 roslaunch turtlebot3_navigation  turtlebot3_navigation.launch
+roslaunch movement_controler_2 movement_controler_2.launch --screen
 
-roslaunch movement_controler2 movement_controler_node2.launch --screen
 roslaunch map_tag_handler map_tag_handler.launch --screen
 
 Start global localization
