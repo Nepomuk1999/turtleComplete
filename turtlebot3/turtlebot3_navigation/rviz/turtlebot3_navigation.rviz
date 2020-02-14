@@ -4,10 +4,15 @@ Panels:
     Name: Displays
     Property Tree Widget:
       Expanded:
+        - /Global Options1
+        - /RobotModel1
+        - /RobotModel1/Status1
         - /TF1/Frames1
         - /TF1/Tree1
-        - /Map1
+        - /LaserScan1
+        - /Map1/Status1
         - /Global Map1/Costmap1
+        - /Global Map1/Costmap1/Status1
         - /Global Map1/Planner1
         - /Local Map1/Polygon1
         - /Local Map1/Costmap1
@@ -100,7 +105,7 @@ Visualization Manager:
           Value: true
       Name: RobotModel
       Robot Description: robot_description
-      TF Prefix: ""
+      TF Prefix: bauwen
       Update Interval: 0
       Value: true
       Visual Enabled: true
@@ -143,7 +148,7 @@ Visualization Manager:
       Size (Pixels): 3
       Size (m): 0.0300000012
       Style: Flat Squares
-      Topic: /scan
+      Topic: bauwen/scan
       Unreliable: false
       Use Fixed Frame: true
       Use rainbow: true
@@ -310,7 +315,7 @@ Visualization Manager:
   Global Options:
     Background Color: 48; 48; 48
     Default Light: true
-    Fixed Frame: map
+    Fixed Frame: bauwen/map
     Frame Rate: 30
   Name: root
   Tools:

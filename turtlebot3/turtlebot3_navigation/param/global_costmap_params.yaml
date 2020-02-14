@@ -5,8 +5,8 @@ global_costmap:
     update_frequency: 5.0
     publish_frequency: 1.0
 
-    global_frame: map
-    robot_base_frame: base_link
+    global_frame: bauwen/map
+    robot_base_frame: bauwen/base_link
     resolution: 0.05
 
     rolling_window: false
@@ -21,11 +21,11 @@ global_costmap:
         - {name: inflation, type: "costmap_2d::InflationLayer"}
 
     static:        
-        map_topic: map
+        map_topic: bauwen/map
         subscribe_to_updates: true
 
     sensor:
-        observation_sources: scan
+        observation_sources: bauwen/scan
         scan: {data_type: LaserScan, topic: scan, marking: true, clearing: true}
 
     inflation:

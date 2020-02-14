@@ -18,5 +18,8 @@
     <remap from="odom" to="$(arg odom_topic)"/>
     <param name="DWAPlannerROS/min_vel_x" value="0.0" if="$(arg move_forward_only)" />
     <param name="clearing_rotation_allowed" value="false"/>
+    <param name="set_base_frame" value="bauwen/base_footprint"/>
+    <param name="set_odom_frame" value="bauwen/odom"/>
+    <param name="set_map_frame"  value="bauwen/map"/>
   </node>
 </launch>

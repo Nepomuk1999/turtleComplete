@@ -5,8 +5,8 @@ local_costmap:
     update_frequency: 5.0
     publish_frequency: 1.0
 
-    global_frame: odom
-    robot_base_frame: base_link
+    global_frame: bauwen/odom
+    robot_base_frame: bauwen/base_link
     resolution: 0.01
     static_map: false
     rolling_window: true
@@ -18,7 +18,7 @@ local_costmap:
         - {name: inflation, type: "costmap_2d::InflationLayer"}
 
     sensor:
-        observation_sources: scan
+        observation_sources: bauwen/scan
         scan: {data_type: LaserScan, topic: scan, marking: true, clearing: true}
 
     inflation:

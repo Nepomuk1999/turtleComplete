@@ -4,6 +4,8 @@ Panels:
     Name: Displays
     Property Tree Widget:
       Expanded:
+        - /Global Options1
+        - /RobotModel1
         - /TF1/Frames1
         - /Map1
       Splitter Ratio: 0.594406009
@@ -26,7 +28,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: ""
+    SyncSource: LaserScan
 Toolbars:
   toolButtonStyle: 2
 Visualization Manager:
@@ -48,7 +50,7 @@ Visualization Manager:
         Z: 0
       Plane: XY
       Plane Cell Count: 100
-      Reference Frame: map
+      Reference Frame: bauwen/map
       Value: true
     - Alpha: 1
       Class: rviz/RobotModel
@@ -95,7 +97,7 @@ Visualization Manager:
           Value: true
       Name: RobotModel
       Robot Description: robot_description
-      TF Prefix: ""
+      TF Prefix: bauwen
       Update Interval: 0
       Value: true
       Visual Enabled: true
@@ -169,7 +171,7 @@ Visualization Manager:
   Global Options:
     Background Color: 48; 48; 48
     Default Light: true
-    Fixed Frame: map
+    Fixed Frame: bauwen/map
     Frame Rate: 30
   Name: root
   Tools:
@@ -200,7 +202,7 @@ Visualization Manager:
       Name: Current View
       Near Clip Distance: 0.00999999978
       Scale: 102.014435
-      Target Frame: map
+      Target Frame: bauwen/map
       Value: TopDownOrtho (rviz)
       X: 0
       Y: 0
