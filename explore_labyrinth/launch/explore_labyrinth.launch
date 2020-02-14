@@ -2,7 +2,6 @@
     <group>
         <arg name="model" default="$(env TURTLEBOT3_MODEL)" doc="model type [burger]"/>
         <param name="model" value="$(arg model)"/>
-
         <!-- turtlebot3_teleop_key already has its own built in velocity smoother -->
         <node pkg="explore_labyrinth" type="explore_labyrinth.py" name="explore_labyrinth"  output="screen">
         </node>

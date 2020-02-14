@@ -21,10 +21,7 @@
         </include>
 
         <node pkg="robot_pose_publisher" type="robot_pose_publisher" name="robot_pose_publisher">
-                <param name="publish_frequency" type="double" value="30.0" />
-                <param name="set_base_frame" value="bauwen/base_footprint"/>
-                <param name="set_odom_frame" value="bauwen/odom"/>
-                <param name="set_map_frame" value="bauwen/map"/>
+            <param name="publish_frequency" type="double" value="30.0"/>
         </node>
 
         <!-- rviz -->
