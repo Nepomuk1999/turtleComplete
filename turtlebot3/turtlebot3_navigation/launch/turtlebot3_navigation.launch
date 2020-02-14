@@ -13,7 +13,7 @@
 
   <!-- Map server -->
   <node pkg="map_server" name="map_server" type="map_server" args="$(arg map_file)">
-    <param name="tf_prefix" value="bauwen"/>
+    <param name="frame_id" value="bauwen/map"/>
   </node>
 
   <!-- AMCL -->
