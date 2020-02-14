@@ -134,19 +134,14 @@ class MovementController:
             print 'calc elips'
             ea = self.calc_elips_area(self._covariance)
             print ea
-            if 0.3 > abs(ea):
+            if first_run and 0.3 > abs(ea):
+                self._status = STAT_COLLECT_TAGS
+            elif abs(ea) > 1.5:
                 self._status = STAT_COLLECT_TAGS
             else:
                 self._status = STAT_FIND_POS
             print self._status
             if self._status == STAT_FIND_POS:
-                #rotate
-                # print 'start rotation'
-                # self.rotate_robot(0.0, 50.0, 360.0)
-                # print 'stop rotation'
-                # self.stop_turtlebot()
-                # time.sleep(1.0)
-                #drive free direction
                 dir = self.eval_dir_to_go(self._ranges)
                 print dir
                 if dir == FRONT_LEFT:
