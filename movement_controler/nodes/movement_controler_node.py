@@ -54,10 +54,16 @@ class MovementController:
         self._current_goal_msg = None
         self._turtlebot_pub = rospy.Publisher('cmd_vel', Twist, queue_size=10)
         print 'wait for robot pose'
-        msg = rospy.wait_for_message('pose', PoseStamped)
+        # msg = rospy.wait_for_message('pose', PoseStamped)
+        # print 'robot pose recived'
+        # self._start_x = msg.pose.position.x
+        # self._start_y = msg.pose.position.y
+
+        msg = rospy.wait_for_message('robot_pose', Pose)
         print 'robot pose recived'
-        self._start_x = msg.pose.position.x
-        self._start_y = msg.pose.position.y
+        self._start_x = msg.position.x
+        self._start_y = msg.position.y
+
         self._free_direction = None
         self._old_free_direction = None
         self._interrupt_sub = rospy.Subscriber('interrupt_msg', String, self.interrupt_callback)

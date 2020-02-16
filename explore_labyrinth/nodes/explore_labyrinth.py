@@ -16,7 +16,7 @@ from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
 from nav_msgs.msg import OccupancyGrid
 from nav_msgs.msg import Odometry
 from tf.transformations import euler_from_quaternion, quaternion_from_euler
-from geometry_msgs.msg import Twist, PoseStamped, PointStamped, Point
+from geometry_msgs.msg import Twist, PoseStamped, PointStamped, Point, Pose
 from scipy import ndimage, misc
 
 if os.name == 'nt':
@@ -52,20 +52,33 @@ class LabyrinthExplorer:
         # reshape map
         trimmed_map = np.array(self._occupancy_map)
         self._occupancy_map = trimmed_map.reshape((self._map_width, self._map_height))
-        self._pose_pub_sub = rospy.Subscriber('pose', PoseStamped, self.pose_callback)
+        # self._pose_pub_sub = rospy.Subscriber('pose', PoseStamped, self.pose_callback)
+        self._pose_pub_sub = rospy.Subscriber('robot_pose', Pose, self.pose_callback)
         self._current_pose = None
         self._current_x = None
         self._current_y = None
-        rospy.wait_for_message('pose', PoseStamped)
+        # rospy.wait_for_message('pose', PoseStamped)
+        rospy.wait_for_message('robot_pose', Pose)
         self._as = rospy.Service('explorer_goal_pos', ExploreLabyrinth, self.movementcontroller)
         self._start_x_meter = None
         self._start_y_meter = None
         self._start_x_coord = None
         self._start_y_coord = None
 
+    # for puse_publisher
+    # def pose_callback(self, msg):
+    #     self._callback_counter = self._callback_counter + 1
+    #     self._current_pose = msg.pose
+    #     self._current_x = self._current_pose.position.x
+    #     self._current_y = self._current_pose.position.y
+    #     self._current_x, self._current_y = self.transform_to_pos(self._current_x, self._current_y)
+    #     #if self._callback_counter % 2 == 0:
+    #     self.update_seen_map(self._current_pose.orientation)
+
+    #for robot_pose_publischer
     def pose_callback(self, msg):
         self._callback_counter = self._callback_counter + 1
-        self._current_pose = msg.pose
+        self._current_pose = msg
         self._current_x = self._current_pose.position.x
         self._current_y = self._current_pose.position.y
         self._current_x, self._current_y = self.transform_to_pos(self._current_x, self._current_y)

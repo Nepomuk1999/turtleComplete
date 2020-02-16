@@ -37,14 +37,16 @@ class CameraController:
         self._blob_y = 0.0
         self._blob_x = 0.0
         self._last_stamp = Time()
-        self._pose_pub_sub = rospy.Subscriber('pose', PoseStamped, self.pose_pub_callback)
+        # self._pose_pub_sub = rospy.Subscriber('pose', PoseStamped, self.pose_pub_callback)
+        self._pose_pub_sub = rospy.Subscriber('robot_pose', Pose, self.pose_pub_callback)
         self._current_pose_pub = None
         self._current_x_pub = None
         self._current_y_pub = None
         self._current_orientation_pub = None
         self._phi_pub = None
         print 'wait pose'
-        rospy.wait_for_message('pose', PoseStamped)
+        # rospy.wait_for_message('pose', PoseStamped)
+        rospy.wait_for_message('robot_pose', Pose)
         print 'got pose'
         self._found_x = []
         self._found_y = []
@@ -92,8 +94,17 @@ class CameraController:
             self._save_tags_pub.publish(msg)
             print 'lists to save send'
 
+    # for pose publisher
+    # def pose_pub_callback(self, msg):
+    #     self._current_pose_pub = msg.pose
+    #     self._current_x_pub = self._current_pose_pub.position.x
+    #     self._current_y_pub = self._current_pose_pub.position.y
+    #     self._current_orientation_pub = self._current_pose_pub.orientation
+    #     self._phi_pub = self.get_rotation(msg)
+
+    # for robot_pose_publisher
     def pose_pub_callback(self, msg):
-        self._current_pose_pub = msg.pose
+        self._current_pose_pub = msg
         self._current_x_pub = self._current_pose_pub.position.x
         self._current_y_pub = self._current_pose_pub.position.y
         self._current_orientation_pub = self._current_pose_pub.orientation
