@@ -6,6 +6,7 @@ import traceback
 import numpy as np
 import rospy
 import tf
+from matplotlib import pyplot as plt
 from scipy.ndimage import label, generate_binary_structure
 from explore_labyrinth_srv.srv import *
 from nav_msgs.msg import OccupancyGrid
@@ -155,7 +156,7 @@ class CameraController:
 
     def mean_token(self):
         rand = 10
-        size_blob = 11
+        size_blob = 20
         size_x = len(self._found_x)
 
         #in cm
@@ -182,12 +183,12 @@ class CameraController:
         s = generate_binary_structure(2, 2)
         labeled_array, num_features = label(array2, structure=s)
         # print labeled_array
-        f = plt.figure(1)
+        # f = plt.figure(1)
         plt.imshow(array, cmap='hot', interpolation='nearest')
         plt.show()
-
-        #print labeled_array
-        f = plt.figure(1)
+        #
+        # #print labeled_array
+        # f = plt.figure(2)
         plt.imshow(labeled_array, cmap='hot', interpolation='nearest')
         plt.show()
 
@@ -213,12 +214,12 @@ class CameraController:
         print 'pos_token_glob_y', token_glob_y
         return token_glob_x, token_glob_y
 
-        fi = plt.figure(2)
+        # fi = plt.figure(3)
         plt.imshow(labeled_array, cmap='hot', interpolation='nearest')
         plt.show()
 
     def get_rotation(self, msg):
-        orientation_q = msg.pose.orientation
+        orientation_q = msg.orientation
         orientation_list = [orientation_q.x, orientation_q.y, orientation_q.z, orientation_q.w]
         (roll, pitch, yaw) = euler_from_quaternion(orientation_list)
         return yaw

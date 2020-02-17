@@ -74,7 +74,8 @@ class MapTagHandler:
         self._last_send_tag_index = -1
 
         self._distance_values = None
-        self._stat = STAT_SEARCH
+        # self._stat = STAT_SEARCH
+        self._stat = STAT_DRIVE
         if self._stat == STAT_DRIVE:
             self.read_tags_from_file()
             self.calculate_distances()

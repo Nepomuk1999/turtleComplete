@@ -217,12 +217,12 @@ class LabyrinthExplorer:
                     if not self.cointains_pos(i, path):
                         path.append(i)
         first_run = False
-        if self.match_divider != 1:
-            print 'set to cp'
-            self.match_divider = 1
-            cx = self._current_x
-            cy = self._current_y
-            return cx, cy
+        # if self.match_divider != 1:
+        #     print 'set to cp'
+        #     self.match_divider = 1
+        #     cx = self._current_x
+        #     cy = self._current_y
+        #     return cx, cy
         print "return start pose"
         return self._start_x_coord, self._start_y_coord
 
@@ -312,13 +312,12 @@ class LabyrinthExplorer:
                 for k in range(-inflation_factor, inflation_factor + 1):
                     if 0 < x + j < map_size_x - 1 and 0 < y + k < map_size_y - 1:
                         if trimmed_map[y+k][x+j] != 1:
-                            #TODO check if wall is in between maybe
                             trimmed_map[y+k][x+j] = 0
         return trimmed_map
 
     def mark_small_unseen_as_seen(self, map, x, y):
         b = False
-        md = 2
+        md = 5
         lx = x - (md / 2)
         ux = x + (md / 2)+1
         ly = y - (md / 2)
@@ -327,7 +326,7 @@ class LabyrinthExplorer:
         print check_area
         val_of_unseen = np.sum(check_area == -1)
         print val_of_unseen
-        if val_of_unseen <= 4:
+        if val_of_unseen <= 14:
             self._seen_map[y, x] = 0
             map[y, x] = 0
             b = True

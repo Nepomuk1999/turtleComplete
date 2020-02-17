@@ -168,8 +168,8 @@ class MovementController:
                     self._move_base_client.send_goal(self._current_goal_msg)
                     # self._move_base_client.wait_for_result(rospy.Duration.from_sec(40))
                     self._move_base_client.wait_for_result()
-                    if self._move_base_client.get_state() is GoalStatus.SUCCEEDED:
-                        calculate = True
+                    #if self._move_base_client.get_state() is GoalStatus.SUCCEEDED:
+                    calculate = True
                     self.stop_move_base()
                     if self._status == STAT_FINISH:
                         self._status = STAT_END

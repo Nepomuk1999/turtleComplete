@@ -9,15 +9,16 @@ import matplotlib.pyplot as plt
 import numpy as np
 import rospy
 from actionlib_msgs.msg import GoalStatus
+from correct_pos_srv.srv import *
 from std_msgs.msg import Int16, Int16MultiArray
 from explore_labyrinth_srv.srv import *
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal, MoveBaseResult
-from correct_pos_srv.srv import *
 from nav_msgs.msg import OccupancyGrid
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Twist, Pose, PoseWithCovarianceStamped
 from map_tag_handler_srv.srv import *
 from sensor_msgs.msg import LaserScan
+from playsound import playsound
 
 # specify directions
 EVERYWHERE = 0
@@ -29,7 +30,7 @@ BACK_RIGHT = 2
 PI = 3.1415926535897
 VEL_STRAIGHT = 0.15
 TIME_STRAIGHT = 2
-POSE_DEVIATION = 0.1
+POSE_DEVIATION = 0.2
 GOAL_MIN_DIST_TO_WALL = 8
 
 STAT_FIND_POS = 'find_pos'
@@ -66,7 +67,7 @@ class MovementController:
         self._current_pos_x = 0.0
         self._current_pos_y = 0.0
 
-        self._interrupt_pub = rospy.Publisher('check_token', CorrectPosSrv, queue_size=10)
+        self.get_correct_pose_tag_srv = rospy.ServiceProxy('drive_on_tag', CorrectPosSrv, headers=None)
         self._current_mb_goal_x = 0.0
         self._current_mb_goal_y = 0.0
         print 'init finished'
@@ -144,9 +145,9 @@ class MovementController:
             if next_token and 0.3 > abs(ea):
                 self._status = STAT_COLLECT_TAGS
             elif abs(ea) > 1.5:
-                self._status = STAT_COLLECT_TAGS
-            else:
                 self._status = STAT_FIND_POS
+            else:
+                self._status = STAT_COLLECT_TAGS
             print self._status
             if self._status == STAT_FIND_POS:
                 dir = self.eval_dir_to_go(self._ranges)
@@ -163,8 +164,8 @@ class MovementController:
                 time.sleep(2.0)
                 self.stop_turtlebot()
                 time.sleep(1.0)
-            elif self._status == STAT_COLLECT_TAGS:
-                #if next_token or self.is_current_pos_goal_pos():
+            elif self._status == STAT_COLLECT_TAGS or self._status == STAT_CHECK_TOKEN:
+                # if next_token or self.is_current_pos_goal_pos():
                 if next_token:
                     req = TagServiceRequest()
                     req.current_pose_x = self._current_pos_x
@@ -189,14 +190,21 @@ class MovementController:
                 # self._move_base_client.wait_for_result(rospy.Duration.from_sec(20))
                 self._move_base_client.wait_for_result(rospy.Duration.from_sec(60))
                 if self._move_base_client.get_state() is GoalStatus.SUCCEEDED:
-                    req = CorrectPosSrvRequest()
-                    req.stat = STAT_CHECK_TOKEN
-                    req.searched_tag_x = self._current_tag_x
-                    req.searched_tag_y = self._current_tag_y
-                    resp = self._interrupt_pub.publish(req)
-                    self._current_mb_goal_x = resp.correct_x
-                    self._current_mb_goal_y = resp.correct_y
-                    next_token = True
+                    if self.is_current_pos_goal_pos():
+                        next_token = True
+                        # playsound()
+                        time.sleep(2)
+                    if not next_token:
+                        req = CorrectPosSrvRequest()
+                        req.stat = STAT_CHECK_TOKEN
+                        req.searched_tag_x = self._current_tag_x
+                        req.searched_tag_y = self._current_tag_y
+                        resp = self.get_correct_pose_tag_srv(req)
+                        if resp.correct_y == -100.0 and resp.correct_x == -100:
+                            next_token = True
+                        else:
+                            self._current_mb_goal_x = resp.correct_x
+                            self._current_mb_goal_y = resp.correct_y
 
     def get_away(self):
         current_map = self.get_map()
@@ -310,6 +318,7 @@ class MovementController:
         deg = np.degrees(np.arctan2(eigen_y.real, eigen_x.real))
         a, b = 2 / np.sqrt(eig_val)
         return a * b * deg
+
 
 def main():
     if os.name != 'nt':
