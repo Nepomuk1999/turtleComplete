@@ -171,9 +171,12 @@ class CameraController:
         length_y = int(round(max_y-min_y)+rand*2)
         array = np.zeros(shape=(length_y, length_x), dtype=int)
         array2 = np.zeros(shape=(length_y, length_x), dtype=int)
+        array3 = np.zeros(shape=(length_y, length_x), dtype=int)
+        array4 = np.zeros(shape=(length_y, length_x), dtype=int)
         for i in range(0, size_x):
             x_point = int(round(rand + self._found_x[i]*100-min_x))
             y_point = int(round(rand + self._found_y[i]*100-min_y))
+            array3[y_point,x_point]=1
             array[(y_point-size_blob):(y_point+size_blob+1), (x_point-size_blob):(x_point+size_blob+1)] = \
                 array[(y_point-size_blob):(y_point+size_blob+1), (x_point-size_blob):(x_point+size_blob+1)]+1
 
@@ -185,15 +188,17 @@ class CameraController:
                     array2[j, i] = 1
         s = generate_binary_structure(2, 2)
         labeled_array, num_features = label(array2, structure=s)
+        # plt.imshow(array3, cmap='hot', interpolation='nearest')
+        # plt.show()
         # print labeled_array
-        # f = plt.figure(1)
-        plt.imshow(array, cmap='hot', interpolation='nearest')
-        plt.show()
+        # # f = plt.figure(1)
+        # plt.imshow(array, cmap='hot', interpolation='nearest')
+        # plt.show()
         #
         # #print labeled_array
-        # f = plt.figure(2)
-        plt.imshow(labeled_array, cmap='hot', interpolation='nearest')
-        plt.show()
+        # # f = plt.figure(2)
+        # plt.imshow(labeled_array, cmap='hot', interpolation='nearest')
+        # plt.show()
 
         pos_token = np.zeros(shape=(2, num_features), dtype=int)
         for i in range(0,num_features):
@@ -210,16 +215,18 @@ class CameraController:
                 position_x = position_x+positions_x[pos_max[0][j]]
             pos_token[0, i] = int(round(position_y/len(pos_max[0])))
             pos_token[1, i] = int(round(position_x/len(pos_max[0])))
-            labeled_array[pos_token[0, i], pos_token[1, i]] = 100
+            labeled_array[pos_token[0, i], pos_token[1, i]] = 100000
+            # array4[pos_token[0, i], pos_token[1, i]] = 10
         token_glob_y = (pos_token[0, :]-rand+min_y)/100
         token_glob_x = (pos_token[1, :]-rand+min_x)/100
         print 'pos_token_glob_x', token_glob_x
         print 'pos_token_glob_y', token_glob_y
+        # # fi = plt.figure(3)
+        # plt.imshow(array4, cmap='hot', interpolation='nearest')
+        # plt.show()
         return token_glob_x, token_glob_y
 
-        # fi = plt.figure(3)
-        plt.imshow(labeled_array, cmap='hot', interpolation='nearest')
-        plt.show()
+
 
     def get_rotation(self, msg):
         orientation_q = msg.orientation
