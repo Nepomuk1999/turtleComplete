@@ -57,8 +57,8 @@ class MapTagHandler:
         self._offset_y = meta_data.origin.position.y
         self._resolution = meta_data.resolution
 
-        top_ser = rospy.get_param('topic_searching', default='/search')
-        top_rea = rospy.get_param('topic_reached', default='/found')
+        top_ser = rospy.get_param('~topic_searching', default='searching')
+        top_rea = rospy.get_param('~topic_reached', default='reached')
         self._search_pub = rospy.Publisher(top_ser, Point, queue_size=10)
         self._search_sub = rospy.Subscriber(top_ser, Point, self.top_ser_callback)
         self._reached_pub = rospy.Publisher(top_rea, Point, queue_size=10)
@@ -78,6 +78,7 @@ class MapTagHandler:
         print 'end init'
 
     def top_ser_callback(self, data):
+        print data
         x = data.x
         y = data.y
         i = self.find_tag_index(x, y)
@@ -90,6 +91,7 @@ class MapTagHandler:
         self._search_pub.publish(p)
 
     def top_rea_callback(self, data):
+        print data
         x = data.x
         y = data.y
         i = self.find_tag_index(x, y)
@@ -117,7 +119,8 @@ class MapTagHandler:
             goal_x = self._my_found_tags_x[i]
             goal_y = self._my_found_tags_y[i]
         else:
-            self.top_rea_pub(msg.current_pose_x, msg.current_pose_y)
+            if msg.current_pose_x != -100.0:
+                self.top_rea_pub(msg.current_pose_x, msg.current_pose_y)
             i = self.find_tag_index(msg.current_pose_x, msg.current_pose_y)
             self.set_tag_stat(i, TAG_STAT_FOUND)
             goal_x, goal_y, ind = self.get_next_tag()

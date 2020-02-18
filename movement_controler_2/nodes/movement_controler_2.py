@@ -161,8 +161,12 @@ class MovementController:
                     time.sleep(2)
                 if token_reached:
                     req = TagServiceRequest()
-                    req.current_pose_x = self._current_pos_x
-                    req.current_pose_y = self._current_pos_y
+                    if tag_found:
+                        req.current_pose_x = self._current_pos_x
+                        req.current_pose_y = self._current_pos_y
+                    else:
+                        req.current_pose_x = -100.0
+                        req.current_pose_y = -100.0
                     response = self._tag_service(req)
                     print'response: ', response
                     self._current_tag_x = response.tags_x
@@ -183,11 +187,12 @@ class MovementController:
                     req.searched_tag_y = self._current_tag_y
                     resp = self.get_correct_pose_tag_srv(req)
                     if resp.correct_y == -100.0 and resp.correct_x == -100:
-                        next_token = True
+                        token_reached = True
+                        tag_found = False
                     else:
+                        tag_found = True
                         self._current_mb_goal_x = resp.correct_x
                         self._current_mb_goal_y = resp.correct_y
-
 
 
     def send_goal_to_move_base(self):
