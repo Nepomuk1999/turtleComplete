@@ -7,12 +7,15 @@ import time
 import rospy
 import tf
 import numpy as np
+import math
 from explore_labyrinth_srv.srv import *
 from geometry_msgs.msg import Twist, Pose, PointStamped, Point, PoseWithCovarianceStamped
 from pixy_msgs.msg import PixyData
 from rospy import Time
 from correct_pos_srv.srv import *
 from scipy.ndimage import label, generate_binary_structure
+from tf.transformations import euler_from_quaternion, quaternion_from_euler
+
 
 if os.name == 'nt':
     pass
@@ -27,8 +30,10 @@ class DriveTagCamera:
     def __init__(self):
         self._found_y = []
         self._found_x = []
-        self._last_stamp = Time()
+        self._current_pose_time_stamp = time
         self._turtlebot_pub = rospy.Publisher('cmd_vel', Twist, queue_size=10)
+        self.target_blobb_x = None
+        self.target_blobb_y = None
         self._as = rospy.Service('drive_on_tag', CorrectPosSrv, self.drive_callback)
         self._current_pos_x = None
         self._current_pos_y = None
@@ -41,16 +46,19 @@ class DriveTagCamera:
         print 'init finish'
 
     def drive_callback(self, data):
+        print 'got request'
         target_blobb_x = data.searched_tag_x
         target_blobb_y = data.searched_tag_y
-        rospy.wait_for_message('pose', Pose)
-        b = self.find_blob()
+        rospy.wait_for_message('amcl_pose', PoseWithCovarianceStamped)
+        self.find_blob()
         self.stop_turtlebot()
         while len(self._found_y) < 10:
             time.sleep(5)
         print 'found 10 blobbs'
         fx, fy = self.mean_token()
-        if self.target_is_current(fx, fy):
+        print 'fx: ', fx
+        print 'fy: ', fy
+        if self.target_is_current(fx, fy, target_blobb_x, target_blobb_y):
             res = CorrectPosSrvResponse()
             res.correct_x = fx
             res.correct_y = fy
@@ -72,6 +80,7 @@ class DriveTagCamera:
                 if yl <= cy <= yu:
                     b = True
         return b
+
     def mean_token(self):
         rand = 10
         size_blob = 20
@@ -140,13 +149,11 @@ class DriveTagCamera:
     def blobb_callback(self, blob_data):
         stamp_nsec = blob_data.header.stamp.nsecs
         if stamp_nsec != 0:
-            print stamp_nsec
             self._last_stamp = blob_data.header.stamp
-            self._found_y = blob_data.blocks[0].roi.x_offset
-            self._found_x = blob_data.blocks[0].roi.y_offset
-            rc_blob_x, rc_blob_y = self.get_pose_token_robot_coord(self._found_x, self._found_y)
+            found_y = blob_data.blocks[0].roi.x_offset
+            found_x = blob_data.blocks[0].roi.y_offset
+            rc_blob_x, rc_blob_y = self.get_pose_token_robot_coord(found_x, found_y)
             mc_blob_x, mc_blob_y = self.get_pose_token_map(rc_blob_x, rc_blob_y, self._last_stamp)
-            print  mc_blob_x, mc_blob_y
             if mc_blob_y != 0 and mc_blob_x != 0:
                 print 'mc_blob_x:', mc_blob_x
                 print 'mc_blob_y:', mc_blob_y
@@ -155,15 +162,22 @@ class DriveTagCamera:
 
     def pose_callback(self, msg):
         msg = msg.pose
+        self._current_pose_time_stamp = msg.header.stamp
         self._current_pos_x = msg.pose.position.x
         self._current_pos_y = msg.pose.position.y
 
     def find_blob(self):
         self._found_y = []
         self._found_x = []
-        self.rotate_robot()
-        self._found_y = []
-        self._found_x = []
+        dir = math.atan2(self.target_blobb_y - self._current_pos_y, self.target_blobb_x - self._current_pos_x)
+
+
+    def get_rotation(self, msg):
+        orientation_q = msg.orientation
+        orientation_list = [orientation_q.x, orientation_q.y, orientation_q.z, orientation_q.w]
+        (roll, pitch, yaw) = euler_from_quaternion(orientation_list)
+        return yaw
+
 
     def move_straight(self, speed):
         twist = Twist()
@@ -190,8 +204,6 @@ class DriveTagCamera:
         twist.angular.x = 0.0
         twist.angular.y = 0.0
         twist.angular.z = angular_speed
-        t0 = rospy.Time.now().to_sec()
-        current_angle = 0.0
         self._turtlebot_pub.publish(twist)
         while len(self._found_y) <= 3:
             pass

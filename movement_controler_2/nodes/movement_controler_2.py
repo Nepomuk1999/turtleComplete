@@ -8,6 +8,7 @@ import actionlib
 import matplotlib.pyplot as plt
 import numpy as np
 import rospy
+from actionlib import SimpleGoalState
 from actionlib_msgs.msg import GoalStatus
 from correct_pos_srv.srv import *
 from std_msgs.msg import Int16, Int16MultiArray
@@ -30,7 +31,9 @@ BACK_RIGHT = 2
 PI = 3.1415926535897
 VEL_STRAIGHT = 0.15
 TIME_STRAIGHT = 2
-POSE_DEVIATION = 0.2
+TAG_POSE_DEVIATION = 0.05    # cm !!
+GOAL_POSE_DEVIATION = 0.1
+GOAL_MIN_DIST_TO_TAG = 10   # *5=cm abstand
 GOAL_MIN_DIST_TO_WALL = 8
 
 STAT_FIND_POS = 'find_pos'
@@ -45,8 +48,8 @@ else:
 class MovementController:
 
     def __init__(self):
-        self._current_tag_x = 0.0
-        self._current_tag_y = 0.0
+        self._current_tag_x = None
+        self._current_tag_y = None
         self._move_base_client = actionlib.SimpleActionClient('move_base', MoveBaseAction)
         self._move_base_client.wait_for_server()
         print 'move base server connected'
@@ -136,37 +139,27 @@ class MovementController:
             self._move_base_client.cancel_all_goals()
 
     def control_loop(self):
-        print 'movment_controler start loop'
-        next_token = True
+        ea_bound = 0.3
+        token_reached = True
         while not rospy.is_shutdown():
-            print 'calc elips'
             ea = self.calc_elips_area(self._covariance)
-            print ea
-            if next_token and 0.3 > abs(ea):
-                self._status = STAT_COLLECT_TAGS
-            elif abs(ea) > 1.5:
+            ea = abs(ea)
+            print 'ea: ', ea
+            print 'ea_bound: ', ea_bound
+            if ea >= ea_bound:
                 self._status = STAT_FIND_POS
-            else:
+            elif ea < ea_bound:
                 self._status = STAT_COLLECT_TAGS
-            print self._status
             if self._status == STAT_FIND_POS:
-                dir = self.eval_dir_to_go(self._ranges)
-                print dir
-                if dir == FRONT_LEFT:
-                    self.rotate_robot(0.0, 45.0, 45.0)
-                if dir == FRONT_RIGHT:
-                    self.rotate_robot(0.0, 45.0, 315.0)
-                if dir == BACK_LEFT:
-                    self.rotate_robot(0.0, 45.0, 135.0)
-                if dir == BACK_RIGHT:
-                    self.rotate_robot(0.0, 45.0, 225.0)
-                self.move_straight(0.1)
-                time.sleep(2.0)
-                self.stop_turtlebot()
-                time.sleep(1.0)
-            elif self._status == STAT_COLLECT_TAGS or self._status == STAT_CHECK_TOKEN:
-                # if next_token or self.is_current_pos_goal_pos():
-                if next_token:
+                self.find_pose()
+            if self._status == STAT_COLLECT_TAGS:
+                if self.is_current_pos_tag_pos():
+                    ea_bound = 1.5
+                    token_reached = True
+                    print 'token_reached: ', token_reached
+                    playsound('/home/christoph/catkin_ws/src/movement_controler/nodes/R2D2.mp3')
+                    time.sleep(2)
+                if token_reached:
                     req = TagServiceRequest()
                     req.current_pose_x = self._current_pos_x
                     req.current_pose_y = self._current_pos_y
@@ -174,65 +167,54 @@ class MovementController:
                     print'response: ', response
                     self._current_tag_x = response.tags_x
                     self._current_tag_y = response.tags_y
-                    self._current_mb_goal_x, self._current_mb_goal_y = self.get_away()
-                    next_token = False
-                goal = MoveBaseGoal()
-                goal.target_pose.header.frame_id = "bauwen/map"
-                goal.target_pose.header.stamp = rospy.Time.now()
-                goal.target_pose.pose.position.x = self._current_mb_goal_x
-                goal.target_pose.pose.position.y = self._current_mb_goal_y
-                goal.target_pose.pose.orientation.w = 1
-                self._current_goal_msg = goal
-                print 'pub goal'
-                print self._current_tag_x
-                print self._current_tag_y
-                self._move_base_client.send_goal(self._current_goal_msg)
-                # self._move_base_client.wait_for_result(rospy.Duration.from_sec(20))
-                self._move_base_client.wait_for_result(rospy.Duration.from_sec(60))
-                if self._move_base_client.get_state() is GoalStatus.SUCCEEDED:
-                    if self.is_current_pos_goal_pos():
+                    # get pos in defined dist to token
+                    self._current_mb_goal_x, self._current_mb_goal_y = self.get_away(self._current_tag_x,
+                                                                                     self._current_tag_y,
+                                                                                     self.get_map())
+                    token_reached = False
+                    print 'token_reached: ', token_reached
+                self.send_goal_to_move_base()
+                result = self._move_base_client.wait_for_result(rospy.Duration.from_sec(40))
+                # check for reached pos
+                if self.is_current_pos_goal_pos():
+                    req = CorrectPosSrvRequest()
+                    req.stat = STAT_CHECK_TOKEN
+                    req.searched_tag_x = self._current_tag_x
+                    req.searched_tag_y = self._current_tag_y
+                    resp = self.get_correct_pose_tag_srv(req)
+                    if resp.correct_y == -100.0 and resp.correct_x == -100:
                         next_token = True
-                        # playsound()
-                        time.sleep(2)
-                    if not next_token:
-                        req = CorrectPosSrvRequest()
-                        req.stat = STAT_CHECK_TOKEN
-                        req.searched_tag_x = self._current_tag_x
-                        req.searched_tag_y = self._current_tag_y
-                        resp = self.get_correct_pose_tag_srv(req)
-                        if resp.correct_y == -100.0 and resp.correct_x == -100:
-                            next_token = True
-                        else:
-                            self._current_mb_goal_x = resp.correct_x
-                            self._current_mb_goal_y = resp.correct_y
+                    else:
+                        self._current_mb_goal_x = resp.correct_x
+                        self._current_mb_goal_y = resp.correct_y
 
-    def get_away(self):
-        current_map = self.get_map()
-        start_pose = np.array([self._current_pos_x, self._current_pos_y])
-        path = [start_pose]
-        closed_list = []
-        first_run = True
-        while len(path) > 0:
-            current_path = path.pop(0)
-            closed_list.append(current_path)
-            current_x = current_path[0]
-            current_y = current_path[1]
-            # is wall
-            if current_map[current_y, current_x] == 1 or (current_map[current_y, current_x] == -1 and not first_run):
-                continue
-            # known cell found
-            if self.check_goal_pos(current_x, current_y, current_map):
-                return current_x, current_y
-            directions = np.array([[current_x + 1, current_y], [current_x - 1, current_y],
-                                   [current_x, current_y + 1], [current_x, current_y - 1]])
-            np.random.shuffle(directions)
-            for i in directions:
-                if not self.cointains_pos(i, closed_list):
-                    if not self.cointains_pos(i, path):
-                        path.append(i)
-            first_run = False
-        print 'No space found'
-        return self._current_pos_x, self._current_pos_y
+
+
+    def send_goal_to_move_base(self):
+        goal = MoveBaseGoal()
+        goal.target_pose.header.frame_id = "bauwen/map"
+        goal.target_pose.header.stamp = rospy.Time.now()
+        goal.target_pose.pose.position.x = self._current_mb_goal_x
+        goal.target_pose.pose.position.y = self._current_mb_goal_y
+        goal.target_pose.pose.orientation.w = 1
+        self._current_goal_msg = goal
+        self._move_base_client.send_goal(self._current_goal_msg)
+
+    def find_pose(self):
+        dir = self.eval_dir_to_go(self._ranges)
+        print dir
+        if dir == FRONT_LEFT:
+            self.rotate_robot(0.0, 45.0, 45.0)
+        if dir == FRONT_RIGHT:
+            self.rotate_robot(0.0, 45.0, 315.0)
+        if dir == BACK_LEFT:
+            self.rotate_robot(0.0, 45.0, 135.0)
+        if dir == BACK_RIGHT:
+            self.rotate_robot(0.0, 45.0, 225.0)
+        self.move_straight(0.1)
+        time.sleep(2.0)
+        self.stop_turtlebot()
+        time.sleep(1.0)
 
     def get_map(self):
         occupancy_grid = rospy.wait_for_message("map", OccupancyGrid)
@@ -243,6 +225,36 @@ class MovementController:
         self._map_width = map_width = meta_data.width
         current_map = trimmed_map.reshape((self._map_width, self._map_height))
         return current_map
+
+    def get_away(self, pos_x, pos_y, current_map):
+        pos_x, pos_y = self.transform_to_pos(pos_x, pos_y)
+        start_pose = np.array([pos_x, pos_y])
+        open_list = [start_pose]
+        closed_list = []
+        dist_list = [0]
+        while len(open_list) > 0:
+            current_path = open_list.pop(0)
+            distance = dist_list.pop(0) + 1
+            closed_list.append(current_path)
+            current_x = current_path[0]
+            current_y = current_path[1]
+            # is wall
+            if current_map[current_y, current_x] == 100 or current_map[current_y, current_x] == -1:
+                continue
+            if current_map[current_y, current_x] == 0:
+                if distance > GOAL_MIN_DIST_TO_TAG:
+                    if self.check_goal_pos(current_x, current_y, current_map):
+                        return self.transform_to_meter(current_x, current_y)
+            directions = np.array([[current_x - 1, current_y], [current_x + 1, current_y],
+                                   [current_x, current_y - 1], [current_x, current_y + 1]], dtype=int)
+            np.random.shuffle(directions)
+            for x in directions:
+                if not self.cointains_pos(x, closed_list):
+                    if not self.cointains_pos(x, open_list):
+                        open_list.append(x)
+                        dist_list.append(distance)
+        print 'calculation done'
+        return self._current_pos_x, self._current_pos_y
 
     def check_goal_pos(self, pos_x, pos_y, current_map):
         lower_x = pos_x - (np.int(GOAL_MIN_DIST_TO_WALL / 2))
@@ -270,19 +282,39 @@ class MovementController:
                     return True
         return False
 
-    def is_current_pos_goal_pos(self):
+    def transform_to_pos(self, m_x, m_y):
+        pos_x = np.int((m_x - (-10.0)) / 0.05)
+        pos_y = np.int((m_y - (-10.0)) / 0.05)
+        return pos_x, pos_y
+
+    def transform_to_meter(self, pos_x, pos_y):
+        m_x = np.float(pos_x) * 0.05 + (-10.0)
+        m_y = np.float(pos_y) * 0.05 + (-10.0)
+        return m_x, m_y
+
+    def is_current_pos_tag_pos(self):
         b = False
-        if self._current_tag_x and self._current_tag_y != 0.0:
-            xu = self._current_tag_x + POSE_DEVIATION / 2
-            xl = self._current_tag_x - POSE_DEVIATION / 2
-            yu = self._current_tag_y + POSE_DEVIATION / 2
-            yl = self._current_tag_y - POSE_DEVIATION / 2
+        if self._current_tag_x is not None and self._current_tag_y is not None:
+            xu = self._current_tag_x + TAG_POSE_DEVIATION / 2
+            xl = self._current_tag_x - TAG_POSE_DEVIATION / 2
+            yu = self._current_tag_y + TAG_POSE_DEVIATION / 2
+            yl = self._current_tag_y - TAG_POSE_DEVIATION / 2
             if xl <= self._current_pos_x <= xu:
                 if yl <= self._current_pos_y <= yu:
                     b = True
         return b
 
-
+    def is_current_pos_goal_pos(self):
+        b = False
+        if self._current_tag_x and self._current_tag_y != 0.0:
+            xu = self._current_mb_goal_x + GOAL_POSE_DEVIATION / 2
+            xl = self._current_mb_goal_x - GOAL_POSE_DEVIATION / 2
+            yu = self._current_mb_goal_y + GOAL_POSE_DEVIATION / 2
+            yl = self._current_mb_goal_y- GOAL_POSE_DEVIATION / 2
+            if xl <= self._current_pos_x <= xu:
+                if yl <= self._current_pos_y <= yu:
+                    b = True
+        return b
 
     def eval_dir_to_go(self, ranges):
         fl = 0.0

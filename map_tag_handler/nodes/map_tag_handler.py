@@ -74,11 +74,6 @@ class MapTagHandler:
         self._last_send_tag_index = -1
 
         self._distance_values = None
-        # self._stat = STAT_SEARCH
-        self._stat = STAT_DRIVE
-        if self._stat == STAT_DRIVE:
-            self.read_tags_from_file()
-            self.calculate_distances()
         self._stat = STAT_READY
         print 'end init'
 
@@ -107,6 +102,8 @@ class MapTagHandler:
         self._search_pub.publish(p)
 
     def provide_next_tag(self, msg):
+        filenamedist = expanduser("~/catkin_ws/src/map_tag_handler/nodes/distances.txt")
+        self._distance_values = np.loadtxt(filenamedist)
         while self._stat != STAT_READY:
             time.sleep(10)
         if self.call_counter == 0:
@@ -172,6 +169,7 @@ class MapTagHandler:
             self._my_found_tags_x.append(data.x_values[i])
             self._my_found_tags_y.append(data.y_values[i])
         self.write_to_file(self._my_found_tags_x, self._my_found_tags_y)
+        self.calculate_distances()
 
     def transform_to_pos(self, m_x, m_y):
         pos_x = np.int((m_x - self._offset_x) / self._resolution)
@@ -328,6 +326,9 @@ class MapTagHandler:
                 print 'current calculated distances:'
                 print self._distance_values
         print 'calculation done'
+        filenamedist = expanduser("~/catkin_ws/src/map_tag_handler/nodes/distances.txt")
+        np.savetxt(filenamedist,  self._distance_values, sep=',')
+
 
     def cointains_pos(self, array, array_array):
         for i in array_array:
