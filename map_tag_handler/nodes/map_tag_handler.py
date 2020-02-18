@@ -103,7 +103,7 @@ class MapTagHandler:
 
     def provide_next_tag(self, msg):
         filenamedist = expanduser("~/catkin_ws/src/map_tag_handler/nodes/distances.txt")
-        self._distance_values = np.loadtxt(filenamedist)
+        self._distance_values = np.loadtxt(filenamedist, delimiter=', ')
         while self._stat != STAT_READY:
             time.sleep(10)
         if self.call_counter == 0:
@@ -327,7 +327,7 @@ class MapTagHandler:
                 print self._distance_values
         print 'calculation done'
         filenamedist = expanduser("~/catkin_ws/src/map_tag_handler/nodes/distances.txt")
-        np.savetxt(filenamedist,  self._distance_values, sep=',')
+        np.savetxt(filenamedist, self._distance_values, fmt="%2.3f", delimiter=', ')
 
 
     def cointains_pos(self, array, array_array):
