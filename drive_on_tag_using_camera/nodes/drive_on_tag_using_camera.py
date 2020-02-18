@@ -37,6 +37,7 @@ class DriveTagCamera:
         self._as = rospy.Service('drive_on_tag', CorrectPosSrv, self.drive_callback)
         self._current_pos_x = None
         self._current_pos_y = None
+        self._orientation = None
         self._pose_pub_sub = rospy.Subscriber('amcl_pose', PoseWithCovarianceStamped, self.pose_callback)
         print 'wait for pose'
         rospy.wait_for_message('amcl_pose', PoseWithCovarianceStamped)
@@ -52,9 +53,9 @@ class DriveTagCamera:
         rospy.wait_for_message('amcl_pose', PoseWithCovarianceStamped)
         self.find_blob()
         self.stop_turtlebot()
-        while len(self._found_y) < 10:
+        while len(self._found_y) < 5:
             time.sleep(5)
-        print 'found 10 blobbs'
+        print 'found 5 blobbs'
         fx, fy = self.mean_token()
         print 'fx: ', fx
         print 'fy: ', fy
@@ -162,18 +163,23 @@ class DriveTagCamera:
 
     def pose_callback(self, msg):
         msg = msg.pose
-        self._current_pose_time_stamp = msg.header.stamp
+        self._current_pose_time_stamp = time.time()
+        self._orientation = msg.pose.orientation
         self._current_pos_x = msg.pose.position.x
         self._current_pos_y = msg.pose.position.y
 
     def find_blob(self):
         self._found_y = []
         self._found_x = []
-        dir = math.atan2(self.target_blobb_y - self._current_pos_y, self.target_blobb_x - self._current_pos_x)
+        t_yaw = math.atan2(self.target_blobb_y - self._current_pos_y, self.target_blobb_x - self._current_pos_x)
+        r_yaw = self.get_rotation()
+        diff = t_yaw - r_yaw
+        diff = diff/PI * 180
+        print 'diff: ', diff
+        self.rotate_robot(0.0, 20.0, diff)
 
-
-    def get_rotation(self, msg):
-        orientation_q = msg.orientation
+    def get_rotation(self):
+        orientation_q = self._orientation
         orientation_list = [orientation_q.x, orientation_q.y, orientation_q.z, orientation_q.w]
         (roll, pitch, yaw) = euler_from_quaternion(orientation_list)
         return yaw
@@ -204,9 +210,12 @@ class DriveTagCamera:
         twist.angular.x = 0.0
         twist.angular.y = 0.0
         twist.angular.z = angular_speed
+        t0 = rospy.Time.now().to_sec()
+        current_angle = 0.0
         self._turtlebot_pub.publish(twist)
-        while len(self._found_y) <= 3:
-            pass
+        while current_angle < relative_angle:
+            t1 = rospy.Time.now().to_sec()
+            current_angle = angular_speed * (t1 - t0)
         self.stop_turtlebot()
 
     def stop_turtlebot(self):
