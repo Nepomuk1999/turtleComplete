@@ -48,18 +48,20 @@ class DriveTagCamera:
 
     def drive_callback(self, data):
         print 'got request'
-        target_blobb_x = data.searched_tag_x
-        target_blobb_y = data.searched_tag_y
+        self.target_blobb_x = data.searched_tag_x
+        self.target_blobb_y = data.searched_tag_y
         rospy.wait_for_message('amcl_pose', PoseWithCovarianceStamped)
         self.find_blob()
         self.stop_turtlebot()
         while len(self._found_y) < 5:
-            time.sleep(5)
+            self.move_straight(0.10)
+            self.stop_turtlebot()
+            time.sleep(0.5)
         print 'found 5 blobbs'
         fx, fy = self.mean_token()
         print 'fx: ', fx
         print 'fy: ', fy
-        if self.target_is_current(fx, fy, target_blobb_x, target_blobb_y):
+        if self.target_is_current(fx, fy, self.target_blobb_x, self.target_blobb_y):
             res = CorrectPosSrvResponse()
             res.correct_x = fx
             res.correct_y = fy
@@ -171,12 +173,26 @@ class DriveTagCamera:
     def find_blob(self):
         self._found_y = []
         self._found_x = []
+        print 'cx: ', self._current_pos_x
+        print 'cy: ', self._current_pos_y
+        print 'bx: ', self.target_blobb_x
+        print 'by: ', self.target_blobb_y
         t_yaw = math.atan2(self.target_blobb_y - self._current_pos_y, self.target_blobb_x - self._current_pos_x)
         r_yaw = self.get_rotation()
         diff = t_yaw - r_yaw
         diff = diff/PI * 180
-        print 'diff: ', diff
-        self.rotate_robot(0.0, 20.0, diff)
+        speed = 15.0
+        print 't_yaw: ', t_yaw
+        print 'r_yaw: ', r_yaw
+        if diff < 0:
+            speed = -speed
+        diff = abs(diff)
+        print 'start rotate'
+        b = self.rotate_robot(0.0, speed, diff)
+        self.stop_turtlebot()
+        print 'stop rotate'
+        self._found_y = []
+        self._found_x = []
 
     def get_rotation(self):
         orientation_q = self._orientation
@@ -213,13 +229,24 @@ class DriveTagCamera:
         t0 = rospy.Time.now().to_sec()
         current_angle = 0.0
         self._turtlebot_pub.publish(twist)
-        while current_angle < relative_angle:
+        while current_angle <= relative_angle:
+            # print 'cangle: ', current_angle
+            # print 'rel angle: ', current_angle
             t1 = rospy.Time.now().to_sec()
-            current_angle = angular_speed * (t1 - t0)
+            current_angle = abs(angular_speed) * (t1 - t0)
         self.stop_turtlebot()
+        return True
 
     def stop_turtlebot(self):
-        self._turtlebot_pub.publish(Twist())
+        for i in range(0, 12):
+            twist = Twist()
+            twist.linear.x = 0.0
+            twist.linear.y = 0.0
+            twist.linear.z = 0.0
+            twist.angular.x = 0.0
+            twist.angular.y = 0.0
+            twist.angular.z = 0.0
+            self._turtlebot_pub.publish(twist)
 
     def get_pose_token_map(self, rc_blob_x, rc_blob_y, blob_data_stamp):
         ps = PointStamped()

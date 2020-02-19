@@ -32,8 +32,8 @@ PI = 3.1415926535897
 VEL_STRAIGHT = 0.15
 TIME_STRAIGHT = 2
 TAG_POSE_DEVIATION = 0.05    # cm !!
-GOAL_POSE_DEVIATION = 0.1
-GOAL_MIN_DIST_TO_TAG = 10   # *5=cm abstand
+GOAL_POSE_DEVIATION = 0.3
+GOAL_MIN_DIST_TO_TAG = 15   # *5=cm abstand
 GOAL_MIN_DIST_TO_WALL = 8
 
 STAT_FIND_POS = 'find_pos'
@@ -141,6 +141,7 @@ class MovementController:
     def control_loop(self):
         ea_bound = 0.3
         token_reached = True
+        tag_found = True
         while not rospy.is_shutdown():
             ea = self.calc_elips_area(self._covariance)
             ea = abs(ea)
@@ -151,10 +152,10 @@ class MovementController:
             elif ea < ea_bound:
                 self._status = STAT_COLLECT_TAGS
             if self._status == STAT_FIND_POS:
+                ea_bound = 1.5
                 self.find_pose()
             if self._status == STAT_COLLECT_TAGS:
                 if self.is_current_pos_tag_pos():
-                    ea_bound = 1.5
                     token_reached = True
                     print 'token_reached: ', token_reached
                     playsound('/home/christoph/catkin_ws/src/movement_controler/nodes/R2D2.mp3')
@@ -180,6 +181,7 @@ class MovementController:
                 self.send_goal_to_move_base()
                 result = self._move_base_client.wait_for_result(rospy.Duration.from_sec(40))
                 # check for reached pos
+                print 'cpose = gpose: ', self.is_current_pos_goal_pos()
                 if self.is_current_pos_goal_pos():
                     req = CorrectPosSrvRequest()
                     req.stat = STAT_CHECK_TOKEN
@@ -217,7 +219,7 @@ class MovementController:
         if dir == BACK_RIGHT:
             self.rotate_robot(0.0, 45.0, 225.0)
         self.move_straight(0.1)
-        time.sleep(2.0)
+        time.sleep(1.0)
         self.stop_turtlebot()
         time.sleep(1.0)
 

@@ -78,7 +78,7 @@ class MapTagHandler:
         print 'end init'
 
     def top_ser_callback(self, data):
-        print data
+        print 'callback search: ', data
         x = data.x
         y = data.y
         i = self.find_tag_index(x, y)
@@ -91,7 +91,7 @@ class MapTagHandler:
         self._search_pub.publish(p)
 
     def top_rea_callback(self, data):
-        print data
+        print 'callback reached:', data
         x = data.x
         y = data.y
         i = self.find_tag_index(x, y)
@@ -104,8 +104,10 @@ class MapTagHandler:
         self._search_pub.publish(p)
 
     def provide_next_tag(self, msg):
+        self.read_tags_from_file()
         filenamedist = expanduser("~/catkin_ws/src/map_tag_handler/nodes/distances.txt")
         self._distance_values = np.loadtxt(filenamedist, delimiter=', ')
+        print self._distance_values
         while self._stat != STAT_READY:
             time.sleep(10)
         if self.call_counter == 0:
