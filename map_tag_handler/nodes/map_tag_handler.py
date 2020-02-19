@@ -66,6 +66,9 @@ class MapTagHandler:
 
         self._start_x_coord = 0.0
         self._start_y_coord = 0.0
+        self._last_x_coord = 0.0
+        self._last_y_coord = 0.0
+
 
         self._tags_stats = []
         self._my_found_tags_x = []
@@ -134,7 +137,11 @@ class MapTagHandler:
                 self.top_rea_pub(msg.current_pose_x, msg.current_pose_y)
             i = self.find_tag_index(msg.current_pose_x, msg.current_pose_y)
             self.set_tag_stat(i, TAG_STAT_FOUND)
-            goal_x, goal_y, ind = self.get_next_tag()
+            if msg.current_pose_x != -100.0:
+                goal_x, goal_y, ind = self.get_next_tag()
+            else:
+                goal_x = self._last_x_coord
+                goal_y = self._last_y_coord
         self.call_counter = self.call_counter + 1
         print'send next_goal'
         print 'goal_x', goal_x
@@ -143,8 +150,8 @@ class MapTagHandler:
         i = self.find_tag_index(goal_x, goal_y)
         self.set_tag_stat(i, TAG_STAT_SER)
         resp = TagServiceResponse()
-        resp.tags_x = goal_x
-        resp.tags_y = goal_y
+        self._last_x_coord = resp.tags_x = goal_x
+        self._last_y_coord = resp.tags_y = goal_y
         return resp
 
     def set_tag_stat(self, tag_index, stat):

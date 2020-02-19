@@ -141,7 +141,7 @@ class MovementController:
     def control_loop(self):
         ea_bound = 0.3
         token_reached = True
-        tag_found = True
+        camera_tag_found = True
         while not rospy.is_shutdown():
             ea = self.calc_elips_area(self._covariance)
             ea = abs(ea)
@@ -156,13 +156,11 @@ class MovementController:
                 self.find_pose()
             if self._status == STAT_COLLECT_TAGS:
                 if self.is_current_pos_tag_pos():
-                    token_reached = True
-                    print 'token_reached: ', token_reached
                     playsound('/home/christoph/catkin_ws/src/movement_controler/nodes/R2D2.mp3')
                     time.sleep(2)
-                if token_reached:
+                if self.is_current_pos_tag_pos():
                     req = TagServiceRequest()
-                    if tag_found:
+                    if camera_tag_found:
                         req.current_pose_x = self._current_pos_x
                         req.current_pose_y = self._current_pos_y
                     else:
@@ -176,8 +174,6 @@ class MovementController:
                     self._current_mb_goal_x, self._current_mb_goal_y = self.get_away(self._current_tag_x,
                                                                                      self._current_tag_y,
                                                                                      self.get_map())
-                    token_reached = False
-                    print 'token_reached: ', token_reached
                 self.send_goal_to_move_base()
                 result = self._move_base_client.wait_for_result(rospy.Duration.from_sec(40))
                 # check for reached pos
@@ -189,10 +185,9 @@ class MovementController:
                     req.searched_tag_y = self._current_tag_y
                     resp = self.get_correct_pose_tag_srv(req)
                     if resp.correct_y == -100.0 and resp.correct_x == -100:
-                        token_reached = True
-                        tag_found = False
+                        camera_tag_found = False
                     else:
-                        tag_found = True
+                        camera_tag_found = True
                         self._current_mb_goal_x = resp.correct_x
                         self._current_mb_goal_y = resp.correct_y
 
