@@ -230,13 +230,14 @@ class MapTagHandler:
         while len(strx) is not 0:
             self._my_found_tags_x.append(float(strx))
             self._my_found_tags_y.append(float(stry))
-            self._tags_stats.append(TAG_STAT_OPEN)
             strx = xfile.readline()
             stry = yfile.readline()
         xfile.close()
         yfile.close()
         print 'tx:', self._my_found_tags_x
         print 'ty:', self._my_found_tags_y
+        for i in range(0, len(self._my_found_tags_y)):
+            self._tags_stats.append(TAG_STAT_OPEN)
 
     def find_first_tag(self, robot_pos_x, robot_pos_y):
         print 'find first tag'
