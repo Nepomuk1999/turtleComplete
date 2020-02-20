@@ -93,7 +93,6 @@ class CameraController:
             print 'in if'
             token_glob_x, token_glob_y = self.mean_token()
             self.update_marker_array(token_glob_x, token_glob_y)
-            self.set_Markers(-10000, -10000)
             print 'prepare send tag to save'
             print token_glob_x
             print token_glob_y
@@ -252,7 +251,7 @@ class CameraController:
         m_y = pos_y * self._resolution + self._offset_y
         return m_x, m_y
 
-    def set_Markers(self, px, py):
+    def set_Markers(self, px, py, r=1.0, g=0.0, b=0.0):
         if px != -10000:
             marker = Marker()
             marker.header.frame_id = "bauwen/map"
@@ -262,9 +261,9 @@ class CameraController:
             marker.scale.y = MARKER_SCALE
             marker.scale.z = MARKER_SCALE
             marker.color.a = 1.0
-            marker.color.r = 1.0
-            marker.color.g = 1.0
-            marker.color.b = 0.0
+            marker.color.r = r
+            marker.color.g = g
+            marker.color.b = b
             marker.pose.orientation.w = 1.0
             marker.pose.position.x = px
             marker.pose.position.y = py
@@ -281,7 +280,7 @@ class CameraController:
         rospy.sleep(0.01)
 
     def update_marker_array(self, token_glob_x, token_glob_y):
-        self._marker_array = MarkerArray()
+        marker_array = MarkerArray()
         for i in range(0, len(token_glob_y)):
             marker = Marker()
             marker.header.frame_id = "bauwen/map"
@@ -290,7 +289,7 @@ class CameraController:
             marker.scale.x = MARKER_SCALE
             marker.scale.y = MARKER_SCALE
             marker.scale.z = MARKER_SCALE
-            marker.color.a = 0.5
+            marker.color.a = 1
             marker.color.r = 0.5
             marker.color.g = 0.5
             marker.color.b = 0.0
@@ -298,7 +297,14 @@ class CameraController:
             marker.pose.position.x = token_glob_x[i]
             marker.pose.position.y = token_glob_y[i]
             marker.pose.position.z = 0.0
-            self._marker_array.markers.append(marker)
+            marker_array.markers.append(marker)
+        id = 0
+        for m in self._marker_array.markers:
+            m.id = id
+            id += 1
+        # Publish the MarkerArray
+        self._marker_pub.publish(self._marker_array)
+        rospy.sleep(0.01)
 
 
 def main():
