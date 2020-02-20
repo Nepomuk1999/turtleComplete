@@ -117,8 +117,9 @@ class MapTagHandler:
 
     def provide_next_tag(self, msg):
         self.read_tags_from_file()
-        filenamedist = expanduser("~/catkin_ws/src/map_tag_handler/nodes/distances.txt")
-        self._distance_values = np.loadtxt(filenamedist, delimiter=', ')
+        self.calculate_distances()
+        # filenamedist = expanduser("~/catkin_ws/src/map_tag_handler/nodes/distances.txt")
+        # self._distance_values = np.loadtxt(filenamedist, delimiter=', ')
         self.print_state()
         while self._stat != STAT_READY:
             time.sleep(10)
@@ -150,8 +151,10 @@ class MapTagHandler:
         i = self.find_tag_index(goal_x, goal_y)
         self.set_tag_stat(i, TAG_STAT_SER)
         resp = TagServiceResponse()
-        self._last_x_coord = resp.tags_x = goal_x
-        self._last_y_coord = resp.tags_y = goal_y
+        resp.tags_x = goal_x
+        resp.tags_y = goal_y
+        self._last_x_coord = goal_x
+        self._last_y_coord = goal_y
         return resp
 
     def set_tag_stat(self, tag_index, stat):

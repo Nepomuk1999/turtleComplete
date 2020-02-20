@@ -6,6 +6,7 @@ import traceback
 import numpy as np
 import rospy
 import tf
+import time
 from matplotlib import pyplot as plt
 from scipy.ndimage import label, generate_binary_structure
 from explore_labyrinth_srv.srv import *
@@ -16,12 +17,15 @@ from std_msgs.msg import String, Time
 from map_tag_handler_srv.srv import *
 from save_tag_msg.msg import *
 from pixy_msgs.msg import *
+from visualization_msgs.msg import Marker
+from visualization_msgs.msg import MarkerArray
 
 
 STAT_STOP_BOT = 'stop_bot'
 STAT_MAPPING = 'mapping'
 STAT_SAVE = 'save_token'
 
+MARKER_SCALE = 0.05
 ELEMENT_RANGE_WITH = 0.5
 
 if os.name == 'nt':
@@ -51,6 +55,9 @@ class CameraController:
         print 'got pose'
         self._found_x = []
         self._found_y = []
+        self._marker_count = 0
+        self._marker_array = MarkerArray()
+        self._marker_pub = rospy.Publisher('visualization_marker_array', MarkerArray, queue_size=10)
         self._interrupt_pub = rospy.Publisher('interrupt_msg', String, queue_size=10)
         self._interrupt_pub = rospy.Subscriber('save_tags', String, self.interrupt_callback)
         self._save_tags_pub = rospy.Publisher('save_tags_to_file', SaveTag, queue_size=10)
@@ -77,6 +84,7 @@ class CameraController:
                 print 'mc_blob_y:', mc_blob_y
                 self._found_x.append(mc_blob_x)
                 self._found_y.append(mc_blob_y)
+                self.set_Markers(mc_blob_x, mc_blob_y)
 
     def interrupt_callback(self, msg):
         print msg
@@ -84,6 +92,8 @@ class CameraController:
         if msg.data == STAT_SAVE:
             print 'in if'
             token_glob_x, token_glob_y = self.mean_token()
+            self.update_marker_array(token_glob_x, token_glob_y)
+            self.set_Markers(-10000, -10000)
             print 'prepare send tag to save'
             print token_glob_x
             print token_glob_y
@@ -93,7 +103,8 @@ class CameraController:
                 msg.y_values.append(token_glob_y[i])
             print 'msg', msg
             self._save_tags_pub.publish(msg)
-            print 'lists to save send'
+            print 'lists to save send, byebye'
+            time.sleep(3600)
 
     # for pose publisher
     # def pose_pub_callback(self, msg):
@@ -155,7 +166,6 @@ class CameraController:
         except Exception as e:
             #print '[Info]: ', e
             return 0, 0
-
 
     def mean_token(self):
         rand = 10
@@ -226,8 +236,6 @@ class CameraController:
         # plt.show()
         return token_glob_x, token_glob_y
 
-
-
     def get_rotation(self, msg):
         orientation_q = msg.orientation
         orientation_list = [orientation_q.x, orientation_q.y, orientation_q.z, orientation_q.w]
@@ -243,6 +251,55 @@ class CameraController:
         m_x = pos_x * self._resolution + self._offset_x
         m_y = pos_y * self._resolution + self._offset_y
         return m_x, m_y
+
+    def set_Markers(self, px, py):
+        if px != -10000:
+            marker = Marker()
+            marker.header.frame_id = "bauwen/map"
+            marker.type = marker.SPHERE
+            marker.action = marker.ADD
+            marker.scale.x = MARKER_SCALE
+            marker.scale.y = MARKER_SCALE
+            marker.scale.z = MARKER_SCALE
+            marker.color.a = 1.0
+            marker.color.r = 1.0
+            marker.color.g = 1.0
+            marker.color.b = 0.0
+            marker.pose.orientation.w = 1.0
+            marker.pose.position.x = px
+            marker.pose.position.y = py
+            marker.pose.position.z = 0.0
+            self._marker_array.markers.append(marker)
+        # Renumber the marker IDs
+        id = 0
+        for m in self._marker_array.markers:
+            m.id = id
+            id += 1
+        # Publish the MarkerArray
+        self._marker_pub.publish(self._marker_array)
+        self._marker_count = self._marker_count + 1
+        rospy.sleep(0.01)
+
+    def update_marker_array(self, token_glob_x, token_glob_y):
+        self._marker_array = MarkerArray()
+        for i in range(0, len(token_glob_y)):
+            marker = Marker()
+            marker.header.frame_id = "bauwen/map"
+            marker.type = marker.SPHERE
+            marker.action = marker.ADD
+            marker.scale.x = MARKER_SCALE
+            marker.scale.y = MARKER_SCALE
+            marker.scale.z = MARKER_SCALE
+            marker.color.a = 0.5
+            marker.color.r = 0.5
+            marker.color.g = 0.5
+            marker.color.b = 0.0
+            marker.pose.orientation.w = 1.0
+            marker.pose.position.x = token_glob_x[i]
+            marker.pose.position.y = token_glob_y[i]
+            marker.pose.position.z = 0.0
+            self._marker_array.markers.append(marker)
+
 
 def main():
     if os.name != 'nt':

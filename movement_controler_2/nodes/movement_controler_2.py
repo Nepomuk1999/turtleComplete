@@ -75,6 +75,7 @@ class MovementController:
         self._current_mb_goal_y = 0.0
         print 'init finished'
 
+    # Callback methods ------------------------------------------------------------
     def lidar_callback(self, data):
         self._ranges = np.array(data.ranges)
         self._ranges[self._ranges >= 2.0] = 2.0
@@ -88,6 +89,17 @@ class MovementController:
         self._current_pos_x = msg.pose.position.x
         self._current_pos_y = msg.pose.position.y
 
+    def get_map(self):
+        occupancy_grid = rospy.wait_for_message("map", OccupancyGrid)
+        meta_data = occupancy_grid.info
+        occupancy_map = occupancy_grid.data
+        trimmed_map = np.array(occupancy_map)
+        self._map_height = meta_data.height
+        self._map_width = map_width = meta_data.width
+        current_map = trimmed_map.reshape((self._map_width, self._map_height))
+        return current_map
+
+    # move methodes ------------------------------------------------------------
     def move_straight(self, speed):
         twist = Twist()
         twist.linear.x = speed
@@ -123,84 +135,87 @@ class MovementController:
         return True
 
     def stop_turtlebot(self):
-        for i in range(0, 12):
-            twist = Twist()
-            twist.linear.x = 0.0
-            twist.linear.y = 0.0
-            twist.linear.z = 0.0
-            twist.angular.x = 0.0
-            twist.angular.y = 0.0
-            twist.angular.z = 0.0
-            self._turtlebot_pub.publish(twist)
+        twist = Twist()
+        twist.linear.x = 0.0
+        twist.linear.y = 0.0
+        twist.linear.z = 0.0
+        twist.angular.x = 0.0
+        twist.angular.y = 0.0
+        twist.angular.z = 0.0
+        self._turtlebot_pub.publish(twist)
 
     def stop_move_base(self):
         # print self._move_base_client.get_state()
         if self._move_base_client.get_state() is GoalStatus.ACTIVE or GoalStatus.PENDING:
             self._move_base_client.cancel_all_goals()
 
+    def send_goal_to_move_base(self, gx, gy):
+        if gx is None:
+            gx = self._current_mb_goal_x
+            gy = self._current_mb_goal_y
+        goal = MoveBaseGoal()
+        goal.target_pose.header.frame_id = "bauwen/map"
+        goal.target_pose.header.stamp = rospy.Time.now()
+        goal.target_pose.pose.position.x = gx
+        goal.target_pose.pose.position.y = gy
+        goal.target_pose.pose.orientation.w = 1
+        self._current_goal_msg = goal
+        self._move_base_client.send_goal(self._current_goal_msg)
+        result = self._move_base_client.wait_for_result(rospy.Duration.from_sec(40))
+
+    # node methodes ------------------------------------------------------------
     def control_loop(self):
+        rospy.wait_for_message('amcl_pose', PoseWithCovarianceStamped)
         ea_bound = 0.3
         token_reached = True
         camera_tag_found = True
+        first_run = True
         while not rospy.is_shutdown():
             ea = self.calc_elips_area(self._covariance)
             ea = abs(ea)
             print 'ea: ', ea
             print 'ea_bound: ', ea_bound
             if ea >= ea_bound:
-                self._status = STAT_FIND_POS
-            elif ea < ea_bound:
-                self._status = STAT_COLLECT_TAGS
-            if self._status == STAT_FIND_POS:
-                ea_bound = 1.5
                 self.find_pose()
-            if self._status == STAT_COLLECT_TAGS:
-                if self.is_current_pos_tag_pos():
-                    playsound('/home/christoph/catkin_ws/src/movement_controler/nodes/R2D2.mp3')
-                    time.sleep(2)
-                if self.is_current_pos_tag_pos():
-                    req = TagServiceRequest()
-                    if camera_tag_found:
-                        req.current_pose_x = self._current_pos_x
-                        req.current_pose_y = self._current_pos_y
-                    else:
-                        req.current_pose_x = -100.0
-                        req.current_pose_y = -100.0
-                    response = self._tag_service(req)
-                    print'response: ', response
-                    self._current_tag_x = response.tags_x
-                    self._current_tag_y = response.tags_y
-                    # get pos in defined dist to token
-                    self._current_mb_goal_x, self._current_mb_goal_y = self.get_away(self._current_tag_x,
-                                                                                     self._current_tag_y,
-                                                                                     self.get_map())
-                self.send_goal_to_move_base()
-                result = self._move_base_client.wait_for_result(rospy.Duration.from_sec(40))
-                # check for reached pos
-                print 'cpose = gpose: ', self.is_current_pos_goal_pos()
-                if self.is_current_pos_goal_pos():
-                    req = CorrectPosSrvRequest()
-                    req.stat = STAT_CHECK_TOKEN
-                    req.searched_tag_x = self._current_tag_x
-                    req.searched_tag_y = self._current_tag_y
-                    resp = self.get_correct_pose_tag_srv(req)
-                    if resp.correct_y == -100.0 and resp.correct_x == -100:
-                        camera_tag_found = False
-                    else:
-                        camera_tag_found = True
-                        self._current_mb_goal_x = resp.correct_x
-                        self._current_mb_goal_y = resp.correct_y
-
-
-    def send_goal_to_move_base(self):
-        goal = MoveBaseGoal()
-        goal.target_pose.header.frame_id = "bauwen/map"
-        goal.target_pose.header.stamp = rospy.Time.now()
-        goal.target_pose.pose.position.x = self._current_mb_goal_x
-        goal.target_pose.pose.position.y = self._current_mb_goal_y
-        goal.target_pose.pose.orientation.w = 1
-        self._current_goal_msg = goal
-        self._move_base_client.send_goal(self._current_goal_msg)
+            elif ea <= ea_bound:
+                self.send_goal_to_move_base(None, None)
+            elif not self.is_current_pos_goal_pos():
+                print 'current pos not goal po'
+                print 'current '
+                pass
+            elif self.is_current_pos_goal_pos() and not self.is_current_pos_tag_pos():
+                print 'get correct pos from camera'
+                req = CorrectPosSrvRequest()
+                req.stat = STAT_CHECK_TOKEN
+                req.searched_tag_x = self._current_tag_x
+                req.searched_tag_y = self._current_tag_y
+                resp = self.get_correct_pose_tag_srv(req)
+                if resp.correct_y == -100.0 and resp.correct_x == -100:
+                    camera_tag_found = False
+                    print 'camera did not find a tag'
+                    self.rotate_robot(0.0, 45.0, 360)
+                else:
+                    camera_tag_found = True
+                    print 'camera found tag'
+                    self._current_mb_goal_x = resp.correct_x
+                    self._current_mb_goal_y = resp.correct_y
+                self.send_goal_to_move_base(None, None)
+            elif self.is_current_pos_goal_pos() and self.is_current_pos_tag_pos():
+                print 'tag found, get next'
+                playsound('/home/christoph/catkin_ws/src/movement_controler/nodes/R2D2.mp3')
+                time.sleep(2)
+                req = TagServiceRequest()
+                req.current_pose_x = self._current_pos_x
+                req.current_pose_y = self._current_pos_y
+                response = self._tag_service(req)
+                print'response: ', response
+                self._current_tag_x = response.tags_x
+                self._current_tag_y = response.tags_y
+                # get pos in defined dist to token
+                first_run = False
+                self._current_mb_goal_x, self._current_mb_goal_y = self.set_goal_away_from_tag(self._current_tag_x,
+                                                                                               self._current_tag_y,
+                                                                                               self.get_map())
 
     def find_pose(self):
         dir = self.eval_dir_to_go(self._ranges)
@@ -218,17 +233,7 @@ class MovementController:
         self.stop_turtlebot()
         time.sleep(1.0)
 
-    def get_map(self):
-        occupancy_grid = rospy.wait_for_message("map", OccupancyGrid)
-        meta_data = occupancy_grid.info
-        occupancy_map = occupancy_grid.data
-        trimmed_map = np.array(occupancy_map)
-        self._map_height = meta_data.height
-        self._map_width = map_width = meta_data.width
-        current_map = trimmed_map.reshape((self._map_width, self._map_height))
-        return current_map
-
-    def get_away(self, pos_x, pos_y, current_map):
+    def set_goal_away_from_tag(self, pos_x, pos_y, current_map):
         pos_x, pos_y = self.transform_to_pos(pos_x, pos_y)
         start_pose = np.array([pos_x, pos_y])
         open_list = [start_pose]
@@ -308,11 +313,11 @@ class MovementController:
 
     def is_current_pos_goal_pos(self):
         b = False
-        if self._current_tag_x and self._current_tag_y != 0.0:
+        if self._current_mb_goal_x is not None:
             xu = self._current_mb_goal_x + GOAL_POSE_DEVIATION / 2
             xl = self._current_mb_goal_x - GOAL_POSE_DEVIATION / 2
             yu = self._current_mb_goal_y + GOAL_POSE_DEVIATION / 2
-            yl = self._current_mb_goal_y- GOAL_POSE_DEVIATION / 2
+            yl = self._current_mb_goal_y - GOAL_POSE_DEVIATION / 2
             if xl <= self._current_pos_x <= xu:
                 if yl <= self._current_pos_y <= yu:
                     b = True
