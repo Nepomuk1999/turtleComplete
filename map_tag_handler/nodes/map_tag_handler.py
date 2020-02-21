@@ -18,6 +18,9 @@ from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal, MoveBaseResult
 from nav_msgs.msg import OccupancyGrid
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Twist, Point
+from visualization_msgs.msg import Marker
+from visualization_msgs.msg import MarkerArray
+import subprocess
 
 # specify directions
 FRONT_LEFT = 0
@@ -26,7 +29,7 @@ BACK_LEFT = 2
 BACK_RIGHT = 3
 
 PI = 3.1415926535897
-
+MARKER_SCALE = 0.05
 STAT_SEARCH = 'search_tokens'
 STAT_DRIVE = 'drive_to_tokens'
 STAT_READY = 'ready'
@@ -57,6 +60,9 @@ class MapTagHandler:
         self._offset_y = meta_data.origin.position.y
         self._resolution = meta_data.resolution
 
+        self._marker_array = MarkerArray()
+        self._marker_pub = rospy.Publisher('visualization_marker_array', MarkerArray, queue_size=10)
+
         top_ser = rospy.get_param('~topic_searching', default='searching')
         top_rea = rospy.get_param('~topic_reached', default='reached')
         self._search_pub = rospy.Publisher(top_ser, Point, queue_size=10)
@@ -68,7 +74,6 @@ class MapTagHandler:
         self._start_y_coord = 0.0
         self._last_x_coord = 0.0
         self._last_y_coord = 0.0
-
 
         self._tags_stats = []
         self._my_found_tags_x = []
@@ -95,6 +100,7 @@ class MapTagHandler:
         y = data.y
         i = self.find_tag_index(x, y)
         self.set_tag_stat(i, TAG_STAT_SER)
+        self.update_marker_index(i, 1.0, 1.0, 0.0)
 
     def top_ser_pub(self, x, y):
         p = Point()
@@ -108,22 +114,22 @@ class MapTagHandler:
         y = data.y
         i = self.find_tag_index(x, y)
         self.set_tag_stat(i, TAG_STAT_FOUND)
+        self.update_marker_index(i, 0.0, 1.0, 0.0)
 
     def top_rea_pub(self, x, y):
+        print 'pub reached:', x, y
         p = Point()
-        p.x = x
+        p.x = 1000
         p.y = y
-        self._search_pub.publish(p)
+        self._reached_pub.publish(p)
 
     def provide_next_tag(self, msg):
-        self.read_tags_from_file()
-        self.calculate_distances()
-        # filenamedist = expanduser("~/catkin_ws/src/map_tag_handler/nodes/distances.txt")
-        # self._distance_values = np.loadtxt(filenamedist, delimiter=', ')
-        self.print_state()
-        while self._stat != STAT_READY:
-            time.sleep(10)
         if self.call_counter == 0:
+            self.read_tags_from_file()
+            filenamedist = expanduser("~/catkin_ws/src/map_tag_handler/nodes/distances.txt")
+            self._distance_values = np.loadtxt(filenamedist, delimiter=', ')
+            self.print_state()
+            self.update_marker_array(self._my_found_tags_x, self._my_found_tags_y)
             print 'first call'
             print 'start_x:', msg.current_pose_x
             print 'start_y:', msg.current_pose_y
@@ -134,11 +140,11 @@ class MapTagHandler:
             goal_x = self._my_found_tags_x[i]
             goal_y = self._my_found_tags_y[i]
         else:
-            if msg.current_pose_x != -100.0:
+            if msg.current_pose_x is not -100.0:
                 self.top_rea_pub(msg.current_pose_x, msg.current_pose_y)
             i = self.find_tag_index(msg.current_pose_x, msg.current_pose_y)
             self.set_tag_stat(i, TAG_STAT_FOUND)
-            if msg.current_pose_x != -100.0:
+            if msg.current_pose_x is not -100.0:
                 goal_x, goal_y, ind = self.get_next_tag()
             else:
                 goal_x = self._last_x_coord
@@ -147,7 +153,6 @@ class MapTagHandler:
         print'send next_goal'
         print 'goal_x', goal_x
         print 'goal_y', goal_y
-        self.top_ser_pub(goal_x, goal_y)
         i = self.find_tag_index(goal_x, goal_y)
         self.set_tag_stat(i, TAG_STAT_SER)
         resp = TagServiceResponse()
@@ -226,6 +231,8 @@ class MapTagHandler:
         xfile.close()
         yfile.close()
         print 'close files'
+        subprocess.check_call(['rosrun', 'map_server', 'map_saver', '-f', 'map'])
+        print 'map saved'
 
     def read_tags_from_file(self):
         i = 0
@@ -362,6 +369,43 @@ class MapTagHandler:
                 if i[1] == array[1]:
                     return True
         return False
+
+    def update_marker_array(self, token_glob_x, token_glob_y, r=1.0, g=0.0, b=0.0):
+        self._marker_array = MarkerArray()
+        for i in range(0, len(token_glob_y)):
+            marker = Marker()
+            marker.header.frame_id = "bauwen/map"
+            marker.type = marker.SPHERE
+            marker.action = marker.ADD
+            marker.scale.x = MARKER_SCALE
+            marker.scale.y = MARKER_SCALE
+            marker.scale.z = MARKER_SCALE
+            marker.color.a = 1
+            marker.color.r = r
+            marker.color.g = g
+            marker.color.b = b
+            marker.pose.orientation.w = 1.0
+            marker.pose.position.x = token_glob_x[i]
+            marker.pose.position.y = token_glob_y[i]
+            marker.pose.position.z = 0.0
+            self._marker_array.markers.append(marker)
+        id = 0
+        for m in self._marker_array.markers:
+            m.id = id
+            id += 1
+        # Publish the MarkerArray
+        self._marker_pub.publish(self._marker_array)
+        rospy.sleep(0.01)
+
+    def update_marker_index(self, index, r=1.0, g=0.0, b=0.0):
+        marker = self._marker_array.markers[index]
+        marker.color.r = r
+        marker.color.g = g
+        marker.color.b = b
+        self._marker_array.markers[index] = marker
+        # Publish the MarkerArray
+        self._marker_pub.publish(self._marker_array)
+        rospy.sleep(0.01)
 
 
 def main():

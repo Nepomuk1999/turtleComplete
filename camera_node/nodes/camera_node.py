@@ -67,11 +67,12 @@ class CameraController:
         self._offset_y = meta_data.origin.position.y
         self._resolution = meta_data.resolution
         self._tl = tf.TransformListener()
+        self._stat = STAT_MAPPING
         print 'init finished'
 
     def blobb_callback(self, blob_data):
         stamp_nsec = blob_data.header.stamp.nsecs
-        if stamp_nsec != 0:
+        if stamp_nsec != 0 and self._stat != STAT_SAVE:
             print stamp_nsec
             self._last_stamp = blob_data.header.stamp
             self._blob_y = blob_data.blocks[0].roi.x_offset
@@ -84,12 +85,13 @@ class CameraController:
                 print 'mc_blob_y:', mc_blob_y
                 self._found_x.append(mc_blob_x)
                 self._found_y.append(mc_blob_y)
-                self.set_Markers(mc_blob_x, mc_blob_y)
+                self.set_markers(mc_blob_x, mc_blob_y)
 
     def interrupt_callback(self, msg):
         print msg
         print msg.data
         if msg.data == STAT_SAVE:
+            self._stat = STAT_SAVE
             print 'in if'
             token_glob_x, token_glob_y = self.mean_token()
             self.update_marker_array(token_glob_x, token_glob_y)
@@ -251,7 +253,7 @@ class CameraController:
         m_y = pos_y * self._resolution + self._offset_y
         return m_x, m_y
 
-    def set_Markers(self, px, py, r=1.0, g=0.0, b=0.0):
+    def set_markers(self, px, py, r=1.0, g=0.0, b=0.0):
         if px != -10000:
             marker = Marker()
             marker.header.frame_id = "bauwen/map"
@@ -290,9 +292,9 @@ class CameraController:
             marker.scale.y = MARKER_SCALE
             marker.scale.z = MARKER_SCALE
             marker.color.a = 1
-            marker.color.r = 0.5
-            marker.color.g = 0.5
-            marker.color.b = 0.0
+            marker.color.r = 1.0
+            marker.color.g = 0.0
+            marker.color.b = 1.0
             marker.pose.orientation.w = 1.0
             marker.pose.position.x = token_glob_x[i]
             marker.pose.position.y = token_glob_y[i]
@@ -303,7 +305,7 @@ class CameraController:
             m.id = id
             id += 1
         # Publish the MarkerArray
-        self._marker_pub.publish(self._marker_array)
+        self._marker_pub.publish(marker_array)
         rospy.sleep(0.01)
 
 

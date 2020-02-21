@@ -1,7 +1,7 @@
 <launch>
   <!-- Arguments -->
   <arg name="model" default="$(env TURTLEBOT3_MODEL)" doc="model type [burger, waffle, waffle_pi]"/>
-  <arg name="map_file" default="$(find turtlebot3_navigation)/maps/Test_new.yaml"/>
+  <arg name="map_file" default="$(find turtlebot3_navigation)/maps/nameOfFile.yaml"/>
   <arg name="open_rviz" default="true"/>
   <arg name="move_forward_only" default="false"/>
 
@@ -21,7 +21,6 @@
 
   <!-- move_base -->
   <include file="$(find turtlebot3_navigation)/launch/move_base.launch">
-    <arg name="clearing_rot_allowed" value="true"/>
   </include>
 
   <!-- rviz -->

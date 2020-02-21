@@ -23,7 +23,7 @@ else:
     import termios
 
 PI = 3.1415926535897
-POSE_DEVIATION = 0.2
+POSE_DEVIATION = 0.5
 
 class DriveTagCamera:
 
@@ -56,6 +56,7 @@ class DriveTagCamera:
         while len(self._found_y) < 5:
             self.move_straight(0.10)
             self.stop_turtlebot()
+            self.rotate_robot(0.0, 20, 20)
             time.sleep(0.5)
         print 'found 5 blobbs'
         fx, fy = self.mean_token()

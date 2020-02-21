@@ -31,9 +31,9 @@ BACK_RIGHT = 2
 PI = 3.1415926535897
 VEL_STRAIGHT = 0.15
 TIME_STRAIGHT = 2
-TAG_POSE_DEVIATION = 0.05    # cm !!
-GOAL_POSE_DEVIATION = 0.3
-GOAL_MIN_DIST_TO_TAG = 15   # *5=cm abstand
+TAG_POSE_DEVIATION = 0.90
+GOAL_POSE_DEVIATION = 0.40
+GOAL_MIN_DIST_TO_TAG = 15
 GOAL_MIN_DIST_TO_WALL = 8
 
 STAT_FIND_POS = 'find_pos'
@@ -48,8 +48,8 @@ else:
 class MovementController:
 
     def __init__(self):
-        self._current_tag_x = None
-        self._current_tag_y = None
+        self._current_tag_x = 1.0
+        self._current_tag_y = 1.0
         self._move_base_client = actionlib.SimpleActionClient('move_base', MoveBaseAction)
         self._move_base_client.wait_for_server()
         print 'move base server connected'
@@ -167,23 +167,15 @@ class MovementController:
     def control_loop(self):
         rospy.wait_for_message('amcl_pose', PoseWithCovarianceStamped)
         ea_bound = 0.3
-        token_reached = True
-        camera_tag_found = True
         first_run = True
+        camera_tag_found = False
         while not rospy.is_shutdown():
             ea = self.calc_elips_area(self._covariance)
             ea = abs(ea)
-            print 'ea: ', ea
-            print 'ea_bound: ', ea_bound
+            # print ea
             if ea >= ea_bound:
                 self.find_pose()
-            elif ea <= ea_bound:
-                self.send_goal_to_move_base(None, None)
-            elif not self.is_current_pos_goal_pos():
-                print 'current pos not goal po'
-                print 'current '
-                pass
-            elif self.is_current_pos_goal_pos() and not self.is_current_pos_tag_pos():
+            elif not camera_tag_found and self.is_current_pos_goal_pos() and not self.is_current_pos_tag_pos() and not first_run:
                 print 'get correct pos from camera'
                 req = CorrectPosSrvRequest()
                 req.stat = STAT_CHECK_TOKEN
@@ -193,17 +185,20 @@ class MovementController:
                 if resp.correct_y == -100.0 and resp.correct_x == -100:
                     camera_tag_found = False
                     print 'camera did not find a tag'
-                    self.rotate_robot(0.0, 45.0, 360)
+                    self.find_pose()
                 else:
                     camera_tag_found = True
                     print 'camera found tag'
                     self._current_mb_goal_x = resp.correct_x
                     self._current_mb_goal_y = resp.correct_y
                 self.send_goal_to_move_base(None, None)
-            elif self.is_current_pos_goal_pos() and self.is_current_pos_tag_pos():
-                print 'tag found, get next'
-                playsound('/home/christoph/catkin_ws/src/movement_controler/nodes/R2D2.mp3')
-                time.sleep(2)
+            elif first_run or (self.is_current_pos_goal_pos() and self.is_current_pos_tag_pos()):
+                ea_bound = 1.5
+                if not first_run and camera_tag_found:
+                    camera_tag_found = False
+                    print 'tag found, get next'
+                    playsound('/home/christoph/catkin_ws/src/movement_controler/nodes/R2D2.mp3')
+                    time.sleep(2)
                 req = TagServiceRequest()
                 req.current_pose_x = self._current_pos_x
                 req.current_pose_y = self._current_pos_y
@@ -216,10 +211,10 @@ class MovementController:
                 self._current_mb_goal_x, self._current_mb_goal_y = self.set_goal_away_from_tag(self._current_tag_x,
                                                                                                self._current_tag_y,
                                                                                                self.get_map())
+                self.send_goal_to_move_base(None, None)
 
     def find_pose(self):
         dir = self.eval_dir_to_go(self._ranges)
-        print dir
         if dir == FRONT_LEFT:
             self.rotate_robot(0.0, 45.0, 45.0)
         if dir == FRONT_RIGHT:
@@ -313,6 +308,11 @@ class MovementController:
 
     def is_current_pos_goal_pos(self):
         b = False
+        print 'gx', self._current_mb_goal_x
+        print 'gy', self._current_mb_goal_y
+        print 'cx', self._current_pos_x
+        print 'cy', self._current_pos_y
+        print 'dev', GOAL_POSE_DEVIATION
         if self._current_mb_goal_x is not None:
             xu = self._current_mb_goal_x + GOAL_POSE_DEVIATION / 2
             xl = self._current_mb_goal_x - GOAL_POSE_DEVIATION / 2
