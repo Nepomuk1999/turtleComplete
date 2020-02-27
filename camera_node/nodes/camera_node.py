@@ -95,6 +95,7 @@ class CameraController:
             print 'in if'
             token_glob_x, token_glob_y = self.mean_token()
             self.update_marker_array(token_glob_x, token_glob_y)
+            time.sleep(0.01)
             print 'prepare send tag to save'
             print token_glob_x
             print token_glob_y
@@ -291,7 +292,7 @@ class CameraController:
             marker.action = marker.ADD
             marker.scale.x = MARKER_SCALE
             marker.scale.y = MARKER_SCALE
-            marker.scale.z = MARKER_SCALE
+            marker.scale.z = MARKER_SCALE*2
             marker.color.a = 1
             marker.color.r = 1.0
             marker.color.g = 0.0

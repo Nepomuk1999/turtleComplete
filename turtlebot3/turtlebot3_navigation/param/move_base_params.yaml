@@ -5,7 +5,7 @@ controller_frequency: 3.0
 # maximum time (in seconds) that the controller will listen for control information before the space-clearing operation is performed
 controller_patience: 10
 # repetition cycle of global plan (in Hz)
-planner_frequency: 2.5
+planner_frequency: 0.0
 # maximum amount of time (in seconds) to wait for an available plan before the space-clearing operation is performed
 planner_patience: 5
 # time (in sec) allowed to allow the robot to move back and forth before executing the recovery behavior.
@@ -13,4 +13,4 @@ oscillation_timeout: 2
 # oscillation_timeout is initialized if you move the distance below the distance (in meter) that the robot should move so that it does not move back and forth.
 oscillation_distance: 0.1
 # Obstacles farther away from fixed distance are deleted on the map during costmap initialization of the restore operation
-conservative_reset_dist: 0.1
+conservative_reset_dist: 2.0

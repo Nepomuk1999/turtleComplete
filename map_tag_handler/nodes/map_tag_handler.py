@@ -17,7 +17,7 @@ from save_tag_msg.msg import *
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal, MoveBaseResult
 from nav_msgs.msg import OccupancyGrid
 from nav_msgs.msg import Odometry
-from geometry_msgs.msg import Twist, Point
+from geometry_msgs.msg import Twist, Point, PointStamped
 from visualization_msgs.msg import Marker
 from visualization_msgs.msg import MarkerArray
 import subprocess
@@ -40,7 +40,6 @@ TAG_STAT_FOUND = 3
 
 FIRST_TAG_TOLERANCE = 0.4
 
-# TODO implement tolerance for tag matching
 COMUNICATION_TOLERANCE = 0.4
 
 if os.name == 'nt':
@@ -65,10 +64,10 @@ class MapTagHandler:
 
         top_ser = rospy.get_param('~topic_searching', default='searching')
         top_rea = rospy.get_param('~topic_reached', default='reached')
-        self._search_pub = rospy.Publisher(top_ser, Point, queue_size=10)
-        self._search_sub = rospy.Subscriber(top_ser, Point, self.top_ser_callback)
-        self._reached_pub = rospy.Publisher(top_rea, Point, queue_size=10)
-        self._reached_sub = rospy.Subscriber(top_rea, Point, self.top_rea_callback)
+        self._search_pub = rospy.Publisher(top_ser, PointStamped, queue_size=10)
+        self._search_sub = rospy.Subscriber(top_ser, PointStamped, self.top_ser_callback)
+        self._reached_pub = rospy.Publisher(top_rea, PointStamped, queue_size=10)
+        self._reached_sub = rospy.Subscriber(top_rea, PointStamped, self.top_rea_callback)
 
         self._start_x_coord = 0.0
         self._start_y_coord = 0.0
@@ -96,34 +95,38 @@ class MapTagHandler:
 
     def top_ser_callback(self, data):
         print 'callback search: ', data
-        x = data.x
-        y = data.y
+        x = data.point.x
+        y = data.point.y
         i = self.find_tag_index(x, y)
         self.set_tag_stat(i, TAG_STAT_SER)
-        self.update_marker_index(i, 1.0, 1.0, 0.0)
+        for j in range(0, 11):
+            self.update_marker_index(i, 1.0, 1.0, 0.0)
+        rospy.sleep(0.01)
 
     def top_ser_pub(self, x, y):
-        p = Point()
-        p.x = x
-        p.y = y
+        p = PointStamped()
+        p.point.x = x
+        p.point.y = y
         self._search_pub.publish(p)
 
     def top_rea_callback(self, data):
         print 'callback reached:', data
-        x = data.x
-        y = data.y
+        x = data.point.x
+        y = data.point.y
         i = self.find_tag_index(x, y)
         self.set_tag_stat(i, TAG_STAT_FOUND)
-        self.update_marker_index(i, 0.0, 1.0, 0.0)
+        for j in range(0, 11):
+            self.update_marker_index(i, 0.0, 1.0, 0.0)
+        rospy.sleep(0.01)
 
     def top_rea_pub(self, x, y):
-        print 'pub reached:', x, y
-        p = Point()
-        p.x = 1000
-        p.y = y
+        p = PointStamped()
+        p.point.x = x
+        p.point.y = y
         self._reached_pub.publish(p)
 
     def provide_next_tag(self, msg):
+        self.print_state()
         if self.call_counter == 0:
             self.read_tags_from_file()
             filenamedist = expanduser("~/catkin_ws/src/map_tag_handler/nodes/distances.txt")

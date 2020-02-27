@@ -23,7 +23,7 @@ else:
     import termios
 
 PI = 3.1415926535897
-POSE_DEVIATION = 0.5
+POSE_DEVIATION = 0.90
 
 class DriveTagCamera:
 
@@ -53,7 +53,8 @@ class DriveTagCamera:
         rospy.wait_for_message('amcl_pose', PoseWithCovarianceStamped)
         self.find_blob()
         self.stop_turtlebot()
-        while len(self._found_y) < 5:
+        rospy.sleep(0.01)
+        while len(self._found_y) < 10:
             self.move_straight(0.10)
             self.stop_turtlebot()
             self.rotate_robot(0.0, 20, 20)
@@ -87,7 +88,7 @@ class DriveTagCamera:
 
     def mean_token(self):
         rand = 10
-        size_blob = 20
+        size_blob = 10
         size_x = len(self._found_x)
 
         # in cm
@@ -121,7 +122,7 @@ class DriveTagCamera:
             positions_y = positions[0]
             num = array[positions[0], positions[1]]
             num_max = max(num)
-            pos_max = np.where(num >= 0.9 * num_max)
+            pos_max = np.where(num >= 0.7 * num_max)
             position_x = 0.0
             position_y = 0.0
             for j in range(0, len(pos_max[0])):

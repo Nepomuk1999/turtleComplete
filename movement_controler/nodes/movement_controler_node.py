@@ -148,7 +148,7 @@ class MovementController:
                     self._status = STAT_FINISH
                 elif self._status == STAT_ROTATE:
                     print 'start rotation'
-                    b = self.rotate_robot(0.0, 50.0, 360.0)
+                    b = self.rotate_robot(0.0, 30.0, 360.0)
                     print 'stop rotation'
                     self.stop_turtlebot()
                     self._status = STAT_MAPPING

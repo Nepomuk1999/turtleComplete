@@ -31,9 +31,9 @@ BACK_RIGHT = 2
 PI = 3.1415926535897
 VEL_STRAIGHT = 0.15
 TIME_STRAIGHT = 2
-TAG_POSE_DEVIATION = 0.90
+TAG_POSE_DEVIATION = 0.40
 GOAL_POSE_DEVIATION = 0.40
-GOAL_MIN_DIST_TO_TAG = 15
+GOAL_MIN_DIST_TO_TAG = 9
 GOAL_MIN_DIST_TO_WALL = 8
 
 STAT_FIND_POS = 'find_pos'
@@ -44,6 +44,7 @@ if os.name == 'nt':
     pass
 else:
     import termios
+
 
 class MovementController:
 
@@ -115,6 +116,7 @@ class MovementController:
     speed_angle: rotationspeed in Degree
     angle: angle to reach in360 degree
     """
+
     def rotate_robot(self, speed, speed_angle, angle):
         angular_speed = speed_angle * 2 * PI / 360
         relative_angle = angle * 2 * PI / 360
@@ -162,6 +164,8 @@ class MovementController:
         self._current_goal_msg = goal
         self._move_base_client.send_goal(self._current_goal_msg)
         result = self._move_base_client.wait_for_result(rospy.Duration.from_sec(40))
+        print 'result: ', result
+        return result
 
     # node methodes ------------------------------------------------------------
     def control_loop(self):
@@ -175,7 +179,7 @@ class MovementController:
             # print ea
             if ea >= ea_bound:
                 self.find_pose()
-            elif not camera_tag_found and self.is_current_pos_goal_pos() and not self.is_current_pos_tag_pos() and not first_run:
+            elif self.is_current_pos_goal_pos() and self.is_current_pos_tag_pos() is False and camera_tag_found == False:
                 print 'get correct pos from camera'
                 req = CorrectPosSrvRequest()
                 req.stat = STAT_CHECK_TOKEN
@@ -186,13 +190,16 @@ class MovementController:
                     camera_tag_found = False
                     print 'camera did not find a tag'
                     self.find_pose()
+                    self.find_pose()
+                    self._current_pos_x = -100.0
+                    self._current_pos_y = -100.0
                 else:
                     camera_tag_found = True
                     print 'camera found tag'
                     self._current_mb_goal_x = resp.correct_x
                     self._current_mb_goal_y = resp.correct_y
-                self.send_goal_to_move_base(None, None)
-            elif first_run or (self.is_current_pos_goal_pos() and self.is_current_pos_tag_pos()):
+                    r = self.send_goal_to_move_base(None, None)
+            else:
                 ea_bound = 1.5
                 if not first_run and camera_tag_found:
                     camera_tag_found = False
@@ -211,7 +218,7 @@ class MovementController:
                 self._current_mb_goal_x, self._current_mb_goal_y = self.set_goal_away_from_tag(self._current_tag_x,
                                                                                                self._current_tag_y,
                                                                                                self.get_map())
-                self.send_goal_to_move_base(None, None)
+                r = self.send_goal_to_move_base(None, None)
 
     def find_pose(self):
         dir = self.eval_dir_to_go(self._ranges)
@@ -295,6 +302,8 @@ class MovementController:
         return m_x, m_y
 
     def is_current_pos_tag_pos(self):
+        print 'check tag'
+        rospy.wait_for_message('amcl_pose', PoseWithCovarianceStamped)
         b = False
         if self._current_tag_x is not None and self._current_tag_y is not None:
             xu = self._current_tag_x + TAG_POSE_DEVIATION / 2
@@ -304,10 +313,13 @@ class MovementController:
             if xl <= self._current_pos_x <= xu:
                 if yl <= self._current_pos_y <= yu:
                     b = True
+        print 'is_current_pos_tag_pos: ', b
         return b
 
     def is_current_pos_goal_pos(self):
         b = False
+        rospy.wait_for_message('amcl_pose', PoseWithCovarianceStamped)
+        time.sleep(0.01)
         print 'gx', self._current_mb_goal_x
         print 'gy', self._current_mb_goal_y
         print 'cx', self._current_pos_x
@@ -321,6 +333,7 @@ class MovementController:
             if xl <= self._current_pos_x <= xu:
                 if yl <= self._current_pos_y <= yu:
                     b = True
+        print 'is_current_pos_goal_pos: ', b
         return b
 
     def eval_dir_to_go(self, ranges):
