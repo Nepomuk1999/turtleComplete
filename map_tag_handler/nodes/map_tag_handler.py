@@ -1,26 +1,18 @@
 #!/usr/bin/env python
 
 import os
-from os.path import expanduser
-import sys
-import time
+import subprocess
 import traceback
-import actionlib
-import matplotlib.pyplot as plt
+from os.path import expanduser
+
 import numpy as np
 import rospy
-from actionlib_msgs.msg import GoalStatus
-from std_msgs.msg import Int16, Int16MultiArray
-from explore_labyrinth_srv.srv import *
+from geometry_msgs.msg import PointStamped
 from map_tag_handler_srv.srv import *
-from save_tag_msg.msg import *
-from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal, MoveBaseResult
 from nav_msgs.msg import OccupancyGrid
-from nav_msgs.msg import Odometry
-from geometry_msgs.msg import Twist, Point, PointStamped
+from save_tag_msg.msg import *
 from visualization_msgs.msg import Marker
 from visualization_msgs.msg import MarkerArray
-import subprocess
 
 # specify directions
 FRONT_LEFT = 0
@@ -39,7 +31,6 @@ TAG_STAT_SER = 2
 TAG_STAT_FOUND = 3
 
 FIRST_TAG_TOLERANCE = 0.4
-
 COMUNICATION_TOLERANCE = 0.4
 
 if os.name == 'nt':
@@ -99,8 +90,7 @@ class MapTagHandler:
         y = data.point.y
         i = self.find_tag_index(x, y)
         self.set_tag_stat(i, TAG_STAT_SER)
-        for j in range(0, 11):
-            self.update_marker_index(i, 1.0, 1.0, 0.0)
+        self.update_marker_index(i, 1.0, 1.0, 0.0)
         rospy.sleep(0.01)
 
     def top_ser_pub(self, x, y):
@@ -115,8 +105,7 @@ class MapTagHandler:
         y = data.point.y
         i = self.find_tag_index(x, y)
         self.set_tag_stat(i, TAG_STAT_FOUND)
-        for j in range(0, 11):
-            self.update_marker_index(i, 0.0, 1.0, 0.0)
+        self.update_marker_index(i, 0.0, 1.0, 0.0)
         rospy.sleep(0.01)
 
     def top_rea_pub(self, x, y):
@@ -126,12 +115,10 @@ class MapTagHandler:
         self._reached_pub.publish(p)
 
     def provide_next_tag(self, msg):
-        self.print_state()
         if self.call_counter == 0:
             self.read_tags_from_file()
             filenamedist = expanduser("~/catkin_ws/src/map_tag_handler/nodes/distances.txt")
             self._distance_values = np.loadtxt(filenamedist, delimiter=', ')
-            self.print_state()
             self.update_marker_array(self._my_found_tags_x, self._my_found_tags_y)
             print 'first call'
             print 'start_x:', msg.current_pose_x

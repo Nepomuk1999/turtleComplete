@@ -1,21 +1,18 @@
 #!/usr/bin/env python
 
+# Node implements the control for Phase 1 of the Project
+
 import os
-import sys
-import time
 import traceback
+
 import actionlib
-import matplotlib.pyplot as plt
-import numpy as np
-#from playsound import playsound
+# from playsound import playsound
 import rospy
 from actionlib_msgs.msg import GoalStatus
-from std_msgs.msg import Int16, Int16MultiArray, String
 from explore_labyrinth_srv.srv import *
-from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal, MoveBaseResult
-from nav_msgs.msg import OccupancyGrid
-from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Twist, Pose, PoseStamped
+from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
+from std_msgs.msg import String
 
 # specify directions
 FRONT_LEFT = 0
@@ -44,8 +41,6 @@ class MovementController:
         self._move_base_client = actionlib.SimpleActionClient('move_base', MoveBaseAction)
         self._move_base_client.wait_for_server()
         print 'move base server connected'
-        # self._labyrinth_explorer = rospy.Subscriber('explorer_goal_pos_result', MoveBaseGoal,
-        #                                             self.labyrinth_explorer_callback)
         print 'wait for explorer service'
         self._explore_service = rospy.ServiceProxy('explorer_goal_pos', ExploreLabyrinth, headers=None)
         rospy.wait_for_service('explorer_goal_pos')
@@ -54,6 +49,7 @@ class MovementController:
         self._current_goal_msg = None
         self._turtlebot_pub = rospy.Publisher('cmd_vel', Twist, queue_size=10)
         print 'wait for robot pose'
+        # Publisher for another pose node
         # msg = rospy.wait_for_message('pose', PoseStamped)
         # print 'robot pose recived'
         # self._start_x = msg.pose.position.x
@@ -68,7 +64,6 @@ class MovementController:
         self._old_free_direction = None
         self._interrupt_sub = rospy.Subscriber('interrupt_msg', String, self.interrupt_callback)
         self._interrupt_pub = rospy.Publisher('save_tags', String, queue_size=10)
-        self._start_pose_pub = rospy.Publisher('start_pose', PoseStamped, queue_size=10)
         self._last_x = 0.0
         self._last_y = 0.0
 
@@ -109,7 +104,7 @@ class MovementController:
         self._turtlebot_pub.publish(twist)
         while current_angle < relative_angle:
             t1 = rospy.Time.now().to_sec()
-            current_angle = angular_speed * (t1 - t0)
+            current_angle = abs(angular_speed) * (t1 - t0)
         self.stop_turtlebot()
         return True
 
@@ -131,10 +126,12 @@ class MovementController:
 
     def control_loop(self):
         calculate = True
+        rotate_left = True
         while not rospy.is_shutdown():
             print 'status = ', self._status
             try:
                 if calculate:
+                    # get next goal from explore node
                     req = ExploreLabyrinthRequest()
                     req.x = self._start_x
                     req.y = self._start_y
@@ -148,7 +145,12 @@ class MovementController:
                     self._status = STAT_FINISH
                 elif self._status == STAT_ROTATE:
                     print 'start rotation'
-                    b = self.rotate_robot(0.0, 30.0, 360.0)
+                    if rotate_left:
+                        b = self.rotate_robot(0.0, 30.0, 360.0)
+                        rotate_left = False
+                    else:
+                        b = self.rotate_robot(0.0, -30.0, 360.0)
+                        rotate_left = True
                     print 'stop rotation'
                     self.stop_turtlebot()
                     self._status = STAT_MAPPING

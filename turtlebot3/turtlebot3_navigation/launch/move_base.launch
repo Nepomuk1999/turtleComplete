@@ -19,7 +19,7 @@
       <remap from="cmd_vel" to="$(arg cmd_vel_topic)"/>
       <remap from="odom" to="$(arg odom_topic)"/>
       <param name="DWAPlannerROS/min_vel_x" value="0.0" if="$(arg move_forward_only)" />
-      <param name="clearing_rotation_allowed" value="true"/>
+      <param name="clearing_rotation_allowed" value="false"/>
     </node>
   </group>
 </launch>
