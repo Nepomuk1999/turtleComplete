@@ -1,23 +1,23 @@
 #!/usr/bin/env python
 
+"""
+Node for exploration of the Labyrinth using the BFS-Algorithm.
+"""
+
 import os
-import sys
-import time
 import traceback
-import actionlib
-import cv2
+
 import matplotlib
+
 matplotlib.use('TkAgg')
 from matplotlib import pyplot as plt
 import numpy as np
 import rospy
 from explore_labyrinth_srv.srv import *
-from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
+from move_base_msgs.msg import MoveBaseGoal
 from nav_msgs.msg import OccupancyGrid
-from nav_msgs.msg import Odometry
-from tf.transformations import euler_from_quaternion, quaternion_from_euler
-from geometry_msgs.msg import Twist, PoseStamped, PointStamped, Point, Pose
-from scipy import ndimage, misc
+from tf.transformations import euler_from_quaternion
+from geometry_msgs.msg import Pose
 
 if os.name == 'nt':
     pass
@@ -85,6 +85,7 @@ class LabyrinthExplorer:
         #if self._callback_counter % 2 == 0:
         self.update_seen_map(self._current_pose.orientation)
 
+    # updates the seen map Depricated in current version
     def update_seen_map(self, orientation):
         phi = self.get_rotation(orientation)
         phi = phi/np.pi * 180
@@ -291,6 +292,7 @@ class LabyrinthExplorer:
         trimmed_map = np.array(self._occupancy_map)
         self._occupancy_map = trimmed_map.reshape((self._map_width, self._map_height))
 
+    # depricated in current version
     def match_maps(self, current_map):
         for x in range(0, self._map_width):
             for y in range(0, self._map_height):
@@ -300,6 +302,7 @@ class LabyrinthExplorer:
         current_map = self.inflate_wals_seen(current_map, 2)
         return current_map
 
+    # depricated in current version
     def inflate_wals_seen(self, trimmed_map, inflation_factor):
         to_be_inflated = np.where(trimmed_map == 1)
         map_size_y, map_size_x = trimmed_map.shape
@@ -315,6 +318,7 @@ class LabyrinthExplorer:
                             trimmed_map[y+k][x+j] = 0
         return trimmed_map
 
+    # depricated in current version
     def mark_small_unseen_as_seen(self, map, x, y):
         b = False
         md = 5
@@ -356,6 +360,7 @@ class LabyrinthExplorer:
                                                 self._map_height, self._map_width)
         print 'div:', self.match_divider
         print 'count:', self._node_use_counter
+        # depricated in current version branch for matching seen map and current map to drive to unseen positions
         if self._node_use_counter % self.match_divider == 0:
             self._seen_map[self._seen_map > 1] = 1
             cleared_map = self.match_maps(cleared_map)

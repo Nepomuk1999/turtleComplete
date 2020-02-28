@@ -1,5 +1,10 @@
 #!/usr/bin/env python
 
+"""
+Node mnaging the found Tokens and calculating the distance matrix in Phase one
+In Phase 2 it manages the communication with the other robot, and the selection of the next tag
+"""
+
 import os
 import subprocess
 import traceback
@@ -188,7 +193,7 @@ class MapTagHandler:
         for i in range(0, len(data.x_values)):
             self._my_found_tags_x.append(data.x_values[i])
             self._my_found_tags_y.append(data.y_values[i])
-        self.write_to_file(self._my_found_tags_x, self._my_found_tags_y)
+        self.write_tags_to_file(self._my_found_tags_x, self._my_found_tags_y)
         self.calculate_distances()
 
     def transform_to_pos(self, m_x, m_y):
@@ -201,7 +206,7 @@ class MapTagHandler:
         m_y = pos_y * self._resolution + self._offset_y
         return m_x, m_y
 
-    def write_to_file(self, x_data, y_data):
+    def write_tags_to_file(self, x_data, y_data):
         print 'write file'
         i = 0
         filenamex = expanduser("~/catkin_ws/src/map_tag_handler/nodes/x.txt")

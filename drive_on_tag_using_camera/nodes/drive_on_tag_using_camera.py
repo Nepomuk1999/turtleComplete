@@ -1,21 +1,24 @@
 #!/usr/bin/env python
 
+"""
+Node for Phase 2
+as soon as robot stands near by a token, this Node rottes the robot and collects the exsct x, y values of the roi
+send by PixyCam. Then it calculates the exact global position of the Token
+"""
+
+import math
 import os
-import sys
-import traceback
 import time
+import traceback
+
+import numpy as np
 import rospy
 import tf
-import numpy as np
-import math
-from explore_labyrinth_srv.srv import *
-from geometry_msgs.msg import Twist, Pose, PointStamped, Point, PoseWithCovarianceStamped
-from pixy_msgs.msg import PixyData
-from rospy import Time
 from correct_pos_srv.srv import *
+from geometry_msgs.msg import Twist, PointStamped, Point, PoseWithCovarianceStamped
+from pixy_msgs.msg import PixyData
 from scipy.ndimage import label, generate_binary_structure
-from tf.transformations import euler_from_quaternion, quaternion_from_euler
-
+from tf.transformations import euler_from_quaternion
 
 if os.name == 'nt':
     pass
@@ -141,9 +144,6 @@ class DriveTagCamera:
         middel_height = blob_y
         middel_width = blob_x
         point_1 = np.array([middel_height, middel_width, 1])
-        # H = np.array([[9.27998422577072, 19.6251228932382, -320.157395862157 ],
-        #               [5.24077929985246, 38.6451497322568, -201.136898122784],
-        #               [0.00619017665655573, 0.0317700847033603, 1]])
         H = np.array([[4.60672455146226, 9.72835892564822, -28.9881784213841],
                       [1.36970419271895, 21.7962377297899, 97.6048947143528],
                       [0.00129456445901604, 0.0167026450466100, 1]])

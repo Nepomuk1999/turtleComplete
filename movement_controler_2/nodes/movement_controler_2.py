@@ -1,25 +1,26 @@
 #!/usr/bin/env python
 
+"""
+Node handling the behaviour of the robot in Phase 2 communicates with the map_tag_handler to get the pose of the next
+tag. Afterwards calculates a position near the tag and communicates with drive_on_tag_using_camera node to get the
+correct position of the tag.
+"""
+
 import os
-import sys
 import time
 import traceback
+
 import actionlib
-import matplotlib.pyplot as plt
 import numpy as np
 import rospy
-from actionlib import SimpleGoalState
 from actionlib_msgs.msg import GoalStatus
 from correct_pos_srv.srv import *
-from std_msgs.msg import Int16, Int16MultiArray
-from explore_labyrinth_srv.srv import *
-from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal, MoveBaseResult
-from nav_msgs.msg import OccupancyGrid
-from nav_msgs.msg import Odometry
-from geometry_msgs.msg import Twist, Pose, PoseWithCovarianceStamped
+from geometry_msgs.msg import Twist, PoseWithCovarianceStamped
 from map_tag_handler_srv.srv import *
-from sensor_msgs.msg import LaserScan
+from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
+from nav_msgs.msg import OccupancyGrid
 from playsound import playsound
+from sensor_msgs.msg import LaserScan
 
 # specify directions
 EVERYWHERE = 0

@@ -1,6 +1,11 @@
 #!/usr/bin/env python
 
-# Node implements the control for Phase 1 of the Project
+"""
+Node implements the control for Phase 1 of the Project, communicates with the Exploration Node, which chooses the next
+unknown pose as goal, and sends the goal to move_base.
+It publishes a msg in the end to tell the camera_node to calculate the positions of the tokens and send them to the
+map_tag_handler
+"""
 
 import os
 import traceback

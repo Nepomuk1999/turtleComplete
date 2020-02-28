@@ -1,25 +1,26 @@
 #!/usr/bin/env python
 
+"""
+Node for Phase one collecting the x, y values of the blobs collected by PixyCam and
+calculate the position of the token using H-Matrix.
+"""
+
 import os
-import sys
+import time
 import traceback
+
 import numpy as np
 import rospy
 import tf
-import time
-from matplotlib import pyplot as plt
-from scipy.ndimage import label, generate_binary_structure
-from explore_labyrinth_srv.srv import *
+from geometry_msgs.msg import Pose, PointStamped, Point
 from nav_msgs.msg import OccupancyGrid
-from geometry_msgs.msg import Twist, Pose, PointStamped, Point, PoseStamped
-from tf.transformations import euler_from_quaternion, quaternion_from_euler
-from std_msgs.msg import String, Time
-from map_tag_handler_srv.srv import *
-from save_tag_msg.msg import *
 from pixy_msgs.msg import *
+from save_tag_msg.msg import *
+from scipy.ndimage import label, generate_binary_structure
+from std_msgs.msg import String, Time
+from tf.transformations import euler_from_quaternion
 from visualization_msgs.msg import Marker
 from visualization_msgs.msg import MarkerArray
-
 
 STAT_STOP_BOT = 'stop_bot'
 STAT_MAPPING = 'mapping'
@@ -141,10 +142,6 @@ class CameraController:
         middel_height = blob_y
         middel_width = blob_x
         point_1 = np.array([middel_height, middel_width, 1])
-
-        # H = np.array([[2.43361310119138,   9.46459812377870, 140.611438539751],
-        #               [-0.267460577403522, 18.7493430420434, 313.429127186090],
-        #               [-0.000556822658796647, 0.0158004654604395, 1]])
         H = np.array([[4.60672455146226, 9.72835892564822, -28.9881784213841],
                       [1.36970419271895, 21.7962377297899, 97.6048947143528],
                       [0.00129456445901604, 0.0167026450466100, 1]])
@@ -201,18 +198,6 @@ class CameraController:
                     array2[j, i] = 1
         s = generate_binary_structure(2, 2)
         labeled_array, num_features = label(array2, structure=s)
-        # plt.imshow(array3, cmap='hot', interpolation='nearest')
-        # plt.show()
-        # print labeled_array
-        # # f = plt.figure(1)
-        # plt.imshow(array, cmap='hot', interpolation='nearest')
-        # plt.show()
-        #
-        # #print labeled_array
-        # # f = plt.figure(2)
-        # plt.imshow(labeled_array, cmap='hot', interpolation='nearest')
-        # plt.show()
-
         pos_token = np.zeros(shape=(2, num_features), dtype=int)
         for i in range(0,num_features):
             positions = np.where(labeled_array == i+1)
@@ -234,9 +219,6 @@ class CameraController:
         token_glob_x = (pos_token[1, :]-rand+min_x)/100
         print 'pos_token_glob_x', token_glob_x
         print 'pos_token_glob_y', token_glob_y
-        # # fi = plt.figure(3)
-        # plt.imshow(array4, cmap='hot', interpolation='nearest')
-        # plt.show()
         return token_glob_x, token_glob_y
 
     def get_rotation(self, msg):
