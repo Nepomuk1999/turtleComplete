@@ -71,6 +71,7 @@ class CameraController:
         self._stat = STAT_MAPPING
         print 'init finished'
 
+    #Gets the Token Data, Calculates the Position in the global koordinate system and saves it into a array
     def blobb_callback(self, blob_data):
         stamp_nsec = blob_data.header.stamp.nsecs
         if stamp_nsec != 0 and self._stat != STAT_SAVE:
@@ -88,6 +89,7 @@ class CameraController:
                 self._found_y.append(mc_blob_y)
                 self.set_markers(mc_blob_x, mc_blob_y)
 
+    #Subscribes the found Token
     def interrupt_callback(self, msg):
         print msg
         print msg.data
@@ -138,6 +140,7 @@ class CameraController:
                         return True
         return False
 
+    #Calculation of the token center in the robot coordinate system
     def get_pose_token_robot_coord(self, blob_x, blob_y):
         middel_height = blob_y
         middel_width = blob_x
@@ -152,6 +155,7 @@ class CameraController:
         px_robot = (1200 - px) / 1000
         return px_robot, py_robot
 
+    #Checks if the blob has a robot position with the same timestamp
     def get_pose_token_map(self, rc_blob_x, rc_blob_y, blob_data_stamp):
         ps = PointStamped()
         ps.header.frame_id = 'bauwen/base_footprint'
@@ -167,6 +171,7 @@ class CameraController:
             #print '[Info]: ', e
             return 0, 0
 
+    #Determination of the token positions based on the previously viewed tokens
     def mean_token(self):
         rand = 10
         size_blob = 20
@@ -221,17 +226,20 @@ class CameraController:
         print 'pos_token_glob_y', token_glob_y
         return token_glob_x, token_glob_y
 
+    #Calculation of the orientation of the Robot in the global coordinate system
     def get_rotation(self, msg):
         orientation_q = msg.orientation
         orientation_list = [orientation_q.x, orientation_q.y, orientation_q.z, orientation_q.w]
         (roll, pitch, yaw) = euler_from_quaternion(orientation_list)
         return yaw
 
+    #Transformation of a Position in meter into the map
     def transform_to_pos(self, m_x, m_y):
         pos_x = np.int((m_x - self._offset_x) / self._resolution)
         pos_y = np.int((m_y - self._offset_y) / self._resolution)
         return pos_x, pos_y
 
+    #Transformation of a Position in the map into position in meter
     def transform_to_meter(self, pos_x, pos_y):
         m_x = pos_x * self._resolution + self._offset_x
         m_y = pos_y * self._resolution + self._offset_y
